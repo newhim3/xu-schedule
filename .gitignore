@@ -4,4 +4,19 @@
 node_modules/
 dist/
 .sites-runtime/
+**/.gradle/
+**/build/
+**/local.properties
+*.jks
+*.keystore
+*.apk
+signing.properties
 
+# Local video decoding dependencies
+.tools/
+
+# Release keys and generated local artifacts
+.release-signing/
+release/
+reference-analysis/
+mobile-calendar-replica.zip
