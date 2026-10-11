@@ -13,6 +13,9 @@ public class ReminderReceiver extends BroadcastReceiver {
     String action=intent.getAction();
     if(!"com.newhim3.xuschedule.REMIND".equals(action)) {ReminderScheduler.restore(context);return;}
     String id=intent.getStringExtra("id");JSONObject item=ReminderScheduler.item(context,id);
+    if(item==null && "test-alarm".equals(id)) {
+        item=new JSONObject();try{item.put("title","闹钟测试 · 关闭或稍后提醒");item.put("alarm",true);}catch(Exception ignored){}
+    }
     if(item==null||item.optBoolean("done"))return;
     ReminderScheduler.next(context,item);
     JSONObject settings=ReminderScheduler.settings(context);
