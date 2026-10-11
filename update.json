@@ -1,6 +1,7 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0.0",
-  "apkUrl": "",
-  "releaseNotes": "首版安装包尚未发布。"
+  "versionCode": 2,
+  "versionName": "1.1.0",
+  "sha256": "384226c78ebe9ba444df1ddbb5088b83ab1c491f32a2156257283cdb819b12a8",
+  "releaseNotes": "手机日程复刻版：更流畅的动画；日程闹钟、自动通知、重复提醒、稍后5分钟；启动及设置中检查更新。",
+  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.1.0/xu-schedule.apk"
 }
