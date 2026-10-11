@@ -17,4 +17,6 @@ GitHub Actions 每次提交自动执行 Android 编译、提醒时间单元测�
 3. 上传 Release 附件 `xu-schedule.apk`。
 4. 确认附件可下载，再更新主分支 `update.json` 的 versionCode、versionName、apkUrl、sha256、releaseNotes。
 
-目前正式 Release 尚未发布，更新清单保留空下载地址，避免提示用户下载不存在的安装包。浏览器版不会在关闭页面后可靠响铃，闹钟功能须使用 Android 安装版。
+正式发布由 `.github/workflows/release.yml` 自动执行：验证已通过的构建记录、源码摘要、APK 签名、包名、版本和网页资源；上传 Release；验证公开下载的 SHA-256；最后更新主分支 `update.json`。可在 Actions 中重新运行失败的发布，无需覆盖已有附件。
+
+发布输入为 `release-artifacts/xu-schedule.apk` 和 `version.json`。后续版本必须重新构建、用同一密钥签名，并更新版本、校验值与对应通过的构建记录；密钥始终留在本机。浏览器版关闭页面后不会可靠响铃，闹钟功能须使用 Android 安装版。

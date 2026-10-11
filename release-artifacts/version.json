@@ -1,0 +1,10 @@
+{
+  "versionCode": 2,
+  "versionName": "1.1.0",
+  "sha256": "384226c78ebe9ba444df1ddbb5088b83ab1c491f32a2156257283cdb819b12a8",
+  "certificateSha256": "50f747f676696e5f51e547ab8f122580b292b314d24bdfe74b0433a2855a646b",
+  "releaseNotes": "手机日程复刻版：更流畅的动画；日程闹钟、自动通知、重复提醒、稍后5分钟；启动及设置中检查更新。",
+  "sourceHash": "9f8c1a75bcf39029060ec488c04108ef25b5dba977094a418aceb5801629b518",
+  "validationRunId": 38107165238,
+  "sourceCommit": "214550887c9ccd011963f10f38b4ecea4e7a7c15"
+}
