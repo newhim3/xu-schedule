@@ -41,7 +41,11 @@ versions = sorted((sdk / "build-tools").glob("*"), key=lambda p: tuple(int(n) fo
 assert versions, "Android build tools unavailable"
 tools = versions[-1]
 certs = run(str(tools / "apksigner"), "verify", "--print-certs", str(apk), capture=True).stdout
-assert "Signer #1 certificate SHA-256 digest: " + meta["certificateSha256"] in certs, "Signing certificate mismatch"
+fingerprint = re.search(r"Signer #1 certificate SHA-256 digest:\s*([0-9a-fA-F:]+)", certs, re.IGNORECASE)
+assert fingerprint is not None, "Cannot read signing certificate: " + certs
+actual_certificate = fingerprint.group(1).replace(":", "").lower()
+assert actual_certificate == meta["certificateSha256"].lower(), "Signing certificate mismatch: " + actual_certificate
+print("Verified signing certificate:", actual_certificate)
 package = run(str(tools / "aapt"), "dump", "badging", str(apk), capture=True).stdout
 assert "package: name='com.newhim3.xuschedule'" in package
 assert "versionCode='" + str(meta["versionCode"]) + "'" in package
@@ -88,3 +92,4 @@ if run("git", "diff", "--cached", "--quiet", check=False).returncode:
     run("git", "commit", "-m", "chore: publish verified Android update " + tag)
     run("git", "push", "origin", "main")
 print("Published:", url)
+
