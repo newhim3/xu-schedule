@@ -1,0 +1,53 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.newhim3.xuschedule"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.newhim3.xuschedule"
+        minSdk 23
+        targetSdk 35
+        versionCode 2
+        versionName "1.1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+def signingPath = System.getenv("XU_SCHEDULE_KEYSTORE")
+def signingStorePassword = System.getenv("XU_SCHEDULE_KEYSTORE_PASSWORD")
+def signingAlias = System.getenv("XU_SCHEDULE_KEY_ALIAS")
+def signingKeyPassword = System.getenv("XU_SCHEDULE_KEY_PASSWORD")
+def hasReleaseSigning = signingPath && signingStorePassword && signingAlias && signingKeyPassword && file(signingPath).exists()
+
+if (hasReleaseSigning) {
+    android.signingConfigs.create("scheduleRelease") {
+        storeFile file(signingPath)
+        storePassword signingStorePassword
+        keyAlias signingAlias
+        keyPassword signingKeyPassword
+    }
+    android.buildTypes.release.signingConfig = android.signingConfigs.getByName("scheduleRelease")
+}
+
+dependencies {
+    implementation "androidx.core:core:1.15.0"
+    testImplementation "junit:junit:4.13.2"
+}
+
+// The reviewed web source is the single source of truth for the installed app.
+android.sourceSets.main.assets.srcDirs = [layout.buildDirectory.dir("generated/web-assets")]
+tasks.register("syncWebAssets", Copy) {
+    from(rootProject.file("../replica"))
+    into(layout.buildDirectory.dir("generated/web-assets"))
+    include "index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest", "sw.js"
+}
+tasks.named("preBuild").configure { dependsOn("syncWebAssets") }
