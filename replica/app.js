@@ -32,8 +32,32 @@ function playMotion(element,frames,duration=280){
  if(!element||motionReduced()||!element.animate)return null;
  return element.animate(frames,{duration,easing:motionEase});
 }
+const surfaceAnimations=new WeakMap();
+const retiringSurfaces=new WeakMap();
+function settleSurface(element,target,duration=280){
+ if(!element)return null;
+ retiringSurfaces.delete(element);
+ const current=getComputedStyle(element);
+ const from={transform:current.transform,opacity:current.opacity};
+ surfaceAnimations.get(element)?.cancel();
+ Object.assign(element.style,target);
+ if(motionReduced()||!element.animate)return null;
+ const animation=element.animate([from,target],{duration,easing:'cubic-bezier(.32,.72,0,1)'});
+ surfaceAnimations.set(element,animation);
+ animation.finished.catch(()=>{}).finally(()=>{if(surfaceAnimations.get(element)===animation)surfaceAnimations.delete(element);});
+ return animation;
+}
+function retireSurface(element,target,duration=260){
+ const animation=settleSurface(element,target,duration);
+ const token={};retiringSurfaces.set(element,token);
+ const cleanup=()=>{if(retiringSurfaces.get(element)===token){element.remove();retiringSurfaces.delete(element);}};
+ if(animation)animation.finished.catch(()=>{}).finally(cleanup);else cleanup();
+}
 function render(){
 const oldDock=$('#app .dock');
+const oldScreen=$('#app > .screen');
+const oldScreenRect=oldScreen?.getBoundingClientRect();
+const oldScreenOpacity=oldScreen?getComputedStyle(oldScreen).opacity:'1';
 const oldPositions=new Map([...document.querySelectorAll('#app .task')].map(e=>[e.querySelector('[data-id]')?.dataset.id,e.getBoundingClientRect()]));
 const chipScroll=$('.chips')?.scrollLeft||0;
 const wasTab=lastRenderTab;lastRenderTab=ui.tab;
@@ -48,7 +72,19 @@ if(oldDock&&!ui.batch){
  oldDock.classList.toggle('calendar-selected',ui.tab==='calendar');
 }else if($('#app .dock'))$('#app .dock').classList.toggle('calendar-selected',ui.tab==='calendar');
 if(!motionReduced()){
-const entering=wasTab!==ui.tab; if(entering)playMotion($('#app .screen'),[{opacity:.15,transform:'translateX('+ (ui.tab==='calendar'?'-40px':'40px') +')'},{opacity:1,transform:'translateX(0)'}]);
+const entering=wasTab!==ui.tab;
+if(entering&&oldScreen){
+ const direction=ui.tab==='calendar'?-1:1;
+ const outgoing=document.createElement('div');outgoing.className='motion-scene';outgoing.inert=true;outgoing.setAttribute('aria-hidden','true');
+ Object.assign(outgoing.style,{left:oldScreenRect.left+'px',width:oldScreenRect.width+'px'});
+ oldScreen.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+ Object.assign(oldScreen.style,{position:'absolute',top:oldScreenRect.top+'px',width:'100%',transform:'none',opacity:oldScreenOpacity});
+ oldScreen.getAnimations().forEach(animation=>animation.cancel());
+ outgoing.append(oldScreen);$('#app').append(outgoing);
+ retireSurface(outgoing,{transform:`translateX(${-direction*16}px)`,opacity:'0'},220);
+ const screen=$('#app > .screen');Object.assign(screen.style,{transform:`translateX(${direction*20}px)`,opacity:'.25'});
+ settleSurface(screen,{transform:'none',opacity:'1'},260);
+}
 for(const el of document.querySelectorAll('#app .task')){const old=oldPositions.get(el.querySelector('[data-id]')?.dataset.id),now=el.getBoundingClientRect();const delta=old?old.top-now.top:8;if(!entering&&(Math.abs(delta)>1||!old))el.animate([{transform:'translateY('+delta+'px)',opacity:old?1:0},{transform:'translateY(0)',opacity:1}],{duration:240,easing:'cubic-bezier(.2,.8,.2,1)'});}
 }
 if(ui.tab==='calendar'&&ui.calendarView==='Timeline'){const e=$('.timeline');if(e)e.scrollTop=67*9.7}}
@@ -109,7 +145,7 @@ function initializeNative(){if(window.AndroidBridge?.reminderStatus){try{nativeS
 function queueNativeSync(){if(!window.AndroidBridge?.syncReminders)return;clearTimeout(nativeSyncTimer);nativeSyncTimer=setTimeout(()=>{try{AndroidBridge.syncReminders(JSON.stringify({items:data.items,settings:data.settings}))}catch{toast('系统提醒未同步，请重新打开应用')}},200)}
 window.onNativeReminderStatus=status=>{nativeStatus=status;if(panel?.type==='settings'&&panel.sub==='reminder-type'){const section=$('#native-reminder-status');if(section)section.outerHTML=reminderPermissionsHTML()}};
 window.handleNativeBack=()=>{if(modal){modal=null;renderOverlay();return true}if(menu){menu=null;renderOverlay();return true}if(panel){if(panel.type==='settings'&&panel.sub!=='root'){panel.sub='root';renderOverlay()}else closePage();return true}if(ui.batch){ui.batch=false;render();return true}return false};
-function closePage(){modal=null;const page=$('.page');if(page&&!matchMedia('(prefers-reduced-motion: reduce)').matches){page.classList.add('closing');setTimeout(()=>{panel=null;render()},180)}else{panel=null;render()}}
+function closePage(){modal=null;panel=null;renderOverlay();}
 function reminderPermissionsHTML(){const n=nativeStatus;const ready=n.native&&n.notifications&&n.exact;return `<section id="native-reminder-status"><div class="permission-note ${ready?'ready':''}"><strong>${n.native?(ready?'提醒已就绪':'需要开启系统权限'):'请安装 Android 手机版'}</strong>${n.native?`自动提醒：${n.notifications?'已开启':'未开启'} · 精确闹钟：${n.exact?'已开启':'未开启'}<br>全屏闹钟：${n.fullScreen?'已允许':'未允许，可通过通知打开闹钟'}<br>已安排 ${n.scheduled||0} 个提醒`:'网页版保存闹钟和提醒设置，后台通知和锁屏响铃由 Android 手机版提供。'}</div>${n.native?`<div class="permission-actions"><button data-action="native-permission" data-permission="notifications">通知权限</button><button data-action="native-permission" data-permission="exact">精确闹钟权限</button><button data-action="native-permission" data-permission="fullscreen">全屏闹钟权限</button></div><div class="test-actions"><button data-action="test-notification" ${!n.notifications?'disabled':''}>测试自动提醒</button><button data-action="test-alarm" ${!n.notifications?'disabled':''}>测试闹钟</button></div>`:''}<p class="note">在事项中设置提醒提前时间，或打开“Alarm · 闹钟”。通知会在设定时间触发；闹钟支持响铃、关闭和稍后5分钟。全天事项默认在北京时间08:00提醒。开启精确闹钟后可准时调度，未开启时系统可能延后。手机关机、系统强行停止应用或厂商省电限制可能影响提醒。</p></section>`}
 actions['native-permission']=e=>{if(window.AndroidBridge)AndroidBridge.requestReminderPermission(e.dataset.permission)};
 actions['test-notification']=()=>{if(window.AndroidBridge)AndroidBridge.testReminder(false);else toast('请安装 Android 手机版')};
@@ -118,14 +154,56 @@ actions['check-update']=()=>{if(window.AndroidBridge?.checkForUpdate)AndroidBrid
 
 // Preserve overlay surfaces so edits do not restart their entrance animation.
 const renderOverlayContent=renderOverlay;
+const navigationHistory=new Map();
 renderOverlay=function(){
- const oldPage=$('.page'),oldKey=previousPanelKey;
+ const oldPage=$('#overlay > .page:not(.navigation-outgoing)'),oldKey=previousPanelKey;
+ const oldPageScroll=oldPage?.scrollTop||0;
+ const oldDimmer=$('#navigation-dimmer');
+ const newKey=panel?panel.type+':'+panel.sub:'';
+ // Only two live surfaces at a time, including during rapid navigation.
+ document.querySelectorAll('.navigation-outgoing').forEach(el=>{surfaceAnimations.get(el)?.cancel();el.remove();});
  const leaving=[...document.querySelectorAll('#overlay > .menu:not(.motion-exit), #overlay > .backdrop:not(.motion-exit), #overlay > .dialog-shade:not(.motion-exit)')];
  renderOverlayContent();
- const nextPage=$('.page');
+ let nextPage=$('.page');
  if(oldPage&&nextPage&&oldKey===previousPanelKey){
   oldPage.replaceChildren(...nextPage.childNodes);nextPage.replaceWith(oldPage);
+  nextPage=oldPage;nextPage.scrollTop=oldPageScroll;
   if(panel?.type==='editor')bindEditor();
+ }else if(oldPage||nextPage){
+  const goingBack=!!nextPage&&navigationHistory.has(newKey);
+  const isEditor=(panel?.type==='editor')||(!nextPage&&oldKey.startsWith('editor:'));
+  const rest='translateX(-50%) translateY(0)';
+  const covered='translateX(-74%)';
+  const offscreen=isEditor?'translateX(-50%) translateY(100%)':'translateX(50%)';
+  if(oldPage){
+   if(nextPage&&!goingBack)navigationHistory.set(oldKey,{node:oldPage,scroll:oldPageScroll});
+   if(goingBack)navigationHistory.delete(oldKey);
+   oldPage.classList.add('navigation-outgoing');oldPage.inert=true;oldPage.setAttribute('aria-hidden','true');
+   oldPage.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+   $('#overlay').append(oldPage);oldPage.scrollTop=oldPageScroll;
+   Object.assign(oldPage.style,{zIndex:goingBack||!nextPage?'27':'25',animation:'none'});
+   retireSurface(oldPage,{transform:goingBack||!nextPage?offscreen:covered,opacity:'1'},280);
+  }
+  if(nextPage){
+   const cached=goingBack?navigationHistory.get(newKey):null;
+   if(cached){
+    cached.node.replaceChildren(...nextPage.childNodes);nextPage.replaceWith(cached.node);nextPage=cached.node;
+    nextPage.classList.remove('navigation-outgoing');nextPage.inert=false;nextPage.removeAttribute('aria-hidden');
+    nextPage.scrollTop=cached.scroll;
+   }
+   Object.assign(nextPage.style,{animation:'none',zIndex:goingBack?'25':'27',transform:goingBack?covered:offscreen,opacity:'1'});
+   settleSurface(nextPage,{transform:rest,opacity:'1'},280);
+  }else navigationHistory.clear();
+ }
+ const screen=$('#app > .screen');
+ const dimmer=oldDimmer||document.createElement('div');dimmer.id='navigation-dimmer';dimmer.className='navigation-dimmer';dimmer.setAttribute('aria-hidden','true');
+ $('#overlay').prepend(dimmer);
+ if(panel){
+  settleSurface(dimmer,{opacity:panel.type==='editor'?'.36':'.16',transform:'none'});
+  settleSurface(screen,{transform:panel.type==='editor'?'translateY(8px) scale(.985)':'translateX(-12px)',opacity:'.85'});
+ }else{
+  retireSurface(dimmer,{opacity:'0',transform:'none'});
+  settleSurface(screen,{transform:'none',opacity:'1'});
  }
  for(const old of leaving){
   const selector=old.classList.contains('dialog-shade')?'.dialog-shade':old.classList.contains('menu')?'.menu':'.backdrop';
@@ -157,6 +235,6 @@ actions.complete=button=>{
 const filterImmediately=actions.filter;
 actions.filter=button=>{filterImmediately(button);playMotion($('#app .screen'),[{opacity:.4},{opacity:1}],160);};
 const settingsContent=settingsHTML;
-settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.1.1');
+settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.1.2');
 initializeNative();
 render();

@@ -16,6 +16,6 @@ walk('android-webview/app/src/main/java','.java');walk('android-webview/app/src/
 paths.push(...['index.html','style.css','app.js','icon.svg','manifest.webmanifest','sw.js'].map(p=>'replica/'+p));
 const source=crypto.createHash('sha256');
 for(const p of paths.sort()){source.update(p);source.update('\0');source.update(fs.readFileSync(p,'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n'));source.update('\0');}
-const meta={versionCode,versionName,sha256:crypto.createHash('sha256').update(fs.readFileSync('release-artifacts/xu-schedule.apk')).digest('hex'),certificateSha256:previous.certificateSha256,releaseNotes:'修复动效未实际播放：保留底部导航并平滑滑动选中背景；加强页面切换、弹窗进出、勾选绘制和任务完成反馈；支持减少动态效果。',sourceHash:source.digest('hex'),validationRunId,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};
+const meta={versionCode,versionName,sha256:crypto.createHash('sha256').update(fs.readFileSync('release-artifacts/xu-schedule.apk')).digest('hex'),certificateSha256:previous.certificateSha256,releaseNotes:'重做连续页面动效：日历与待办双层衔接；设置页前后层级联动与滚动位置保留；新建事项从底部展开；快速返回和重新打开可从当前进度接续。',sourceHash:source.digest('hex'),validationRunId,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};
 fs.writeFileSync(metadataPath,JSON.stringify(meta,null,2)+'\n');
 console.log(JSON.stringify(meta,null,2));
