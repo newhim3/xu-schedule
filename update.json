@@ -1,7 +1,7 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1.0",
-  "sha256": "384226c78ebe9ba444df1ddbb5088b83ab1c491f32a2156257283cdb819b12a8",
-  "releaseNotes": "手机日程复刻版：更流畅的动画；日程闹钟、自动通知、重复提醒、稍后5分钟；启动及设置中检查更新。",
-  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.1.0/xu-schedule.apk"
+  "versionCode": 3,
+  "versionName": "1.1.1",
+  "sha256": "a6b4bce7e13d08b0665907b95543f7d56039fbc62f96ab0ba4e20d9d5a36fc38",
+  "releaseNotes": "修复动效未实际播放：保留底部导航并平滑滑动选中背景；加强页面切换、弹窗进出、勾选绘制和任务完成反馈；支持减少动态效果。",
+  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.1.1/xu-schedule.apk"
 }
