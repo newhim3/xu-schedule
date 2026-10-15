@@ -12,3 +12,28 @@ button:active{scale:.96}.day:active{scale:.92}.task-main:active{scale:1}.round:a
 .permission-note{padding:13px;background:#272727;border:1px solid #414141;border-radius:12px;margin:15px 0;font-size:12px;line-height:1.65;color:#aaa}.permission-note.ready{border-color:#355547;color:#91baa5}.permission-note strong{display:block;color:#ddd;font-weight:500;font-size:14px;margin-bottom:5px}.permission-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.permission-actions button{background:#333f51;color:#b2cef7;padding:9px 12px;border-radius:12px;font-size:13px;min-height:40px}.permission-actions button:disabled{background:#2c2c2c}.test-actions{display:flex;gap:12px}.test-actions button{flex:1;padding:12px;color:#8faeed;background:#242424;border-radius:10px;font-size:13px}
 @keyframes pageout{to{opacity:0;translate:0 24px}}@keyframes shadein{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){button{transition:none}.switcher:before{transition:none}}
+
+/* Motion v1.1.1: preserve moving controls; use transform for older WebViews. */
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-drawer:cubic-bezier(.32,.72,0,1)}
+button{transition:transform 160ms var(--ease-out),opacity 160ms ease,background-color 160ms ease,color 160ms ease;scale:none}
+button:active{scale:none;transform:scale(.96)}.round:active{scale:none;transform:scale(.9)}.day:active{scale:none;transform:scale(.94)}.task-main:active{scale:none;transform:scale(.98)}
+.switcher:before{transform:translateX(100%);transition:transform 280ms var(--ease-drawer)}
+.switcher:has(button:last-child.active):before{transform:translateX(100%)}
+.dock.calendar-selected .switcher:before{transform:translateX(0)}
+.page{animation:page-enter 280ms var(--ease-drawer);will-change:auto}
+.page.no-enter{animation:none}.page.closing{animation:page-leave 200ms var(--ease-out) forwards}
+.dialog{animation:sheet-enter 280ms var(--ease-drawer)}
+.menu{animation:appear 200ms var(--ease-out)}
+.motion-exit,.motion-exit .dialog{animation:none!important}
+.check span{transition:background-color 160ms ease,border-color 160ms ease}
+.check svg{stroke-dasharray:24;stroke-dashoffset:0;animation:check-draw 200ms var(--ease-out)}
+#toast{transition:transform 250ms var(--ease-out),opacity 250ms var(--ease-out)}
+@keyframes page-enter{from{opacity:0;transform:translate(-50%,48px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes page-leave{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,48px)}}
+@keyframes sheet-enter{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:translateY(0)}}
+@keyframes check-draw{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){
+ button,button:active,.round:active,.day:active,.task-main:active{transform:none;scale:none}
+ .page,.page.closing,.dialog,.menu,.check svg{animation:none}
+ .switcher:before{transition:none}
+}

@@ -26,13 +26,29 @@ function emptyHTML(){return `<div class="empty">${icon('calendar')}<div>No to-do
 function dockHTML(){return `<nav class="dock" aria-label="Main navigation">${btn('view-menu',ui.tab==='todos'?'To-do options':'Calendar views',ui.tab==='todos'?'sort':ui.calendarView==='Timeline'?'timeline':ui.calendarView==='Overview'?'grid':'list','','round')}<div class="switcher"><button class="${ui.tab==='calendar'?'active':''}" data-action="tab" data-tab="calendar">Calendar</button><button class="${ui.tab==='todos'?'active':''}" data-action="tab" data-tab="todos">To-dos</button></div>${btn('new','New event or to-do','plus','','round')}</nav>`}
 function batchFooter(){return `<nav class="batch-footer">${[['batch-priority','Priority','flag'],['batch-reminder','Reminder','bell'],['batch-delete','Delete','trash']].map(([a,t,i])=>`<button data-action="${a}" ${!ui.selectedIds.size?'disabled':''}>${icon(i)}${t}</button>`).join('')}</nav>`}
 let lastRenderTab=ui.tab;
+const motionReduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+const motionEase='cubic-bezier(0.23, 1, 0.32, 1)';
+function playMotion(element,frames,duration=280){
+ if(!element||motionReduced()||!element.animate)return null;
+ return element.animate(frames,{duration,easing:motionEase});
+}
 function render(){
+const oldDock=$('#app .dock');
 const oldPositions=new Map([...document.querySelectorAll('#app .task')].map(e=>[e.querySelector('[data-id]')?.dataset.id,e.getBoundingClientRect()]));
 const chipScroll=$('.chips')?.scrollLeft||0;
 const wasTab=lastRenderTab;lastRenderTab=ui.tab;
 const items=filteredTodos();$('#app').innerHTML=`<main class="screen">${ui.batch?`<header class="header"><button class="text-button" data-action="batch-cancel">Cancel</button><h1 style="text-align:center;font-size:17px">${ui.selectedIds.size?ui.selectedIds.size+' selected':'Select to-dos'}</h1><button class="text-button" data-action="select-all">${ui.selectedIds.size===items.length&&items.length?'Deselect all':'Select all'}</button></header>${todosHTML()}`:ui.tab==='todos'?`<header class="header"><h1>To-dos <small>${data.items.filter(x=>x.kind==='todo'&&!x.done&&included(x)).length}</small></h1>${btn('more','More options','more')}</header><div class="chips" aria-label="Filter to-dos">${['All','In progress','Overdue','Today','Next 7 days','High priority'].map(x=>`<button class="chip ${ui.filter===x?'active':''}" data-action="filter" data-filter="${x}" aria-pressed="${ui.filter===x}">${x}</button>`).join('')}</div>${todosHTML()}`:calendarHTML()}</main>${ui.batch?batchFooter():dockHTML()}`;renderOverlay();if($('.chips'))$('.chips').scrollLeft=chipScroll;
-if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
-const entering=wasTab!==ui.tab; if(entering)$('#app .screen').animate([{opacity:.2,transform:'translateX('+ (ui.tab==='calendar'?'-12px':'12px') +')'},{opacity:1,transform:'translateX(0)'}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});
+if(oldDock&&!ui.batch){
+ const nextDock=$('#app .dock');
+ const nextControl=nextDock.querySelector('.round');
+ const oldControl=oldDock.querySelector('.round');
+ oldControl.innerHTML=nextControl.innerHTML;oldControl.setAttribute('aria-label',nextControl.getAttribute('aria-label'));
+ nextDock.replaceWith(oldDock);oldDock.getBoundingClientRect();
+ oldDock.querySelectorAll('[data-tab]').forEach(button=>button.classList.toggle('active',button.dataset.tab===ui.tab));
+ oldDock.classList.toggle('calendar-selected',ui.tab==='calendar');
+}else if($('#app .dock'))$('#app .dock').classList.toggle('calendar-selected',ui.tab==='calendar');
+if(!motionReduced()){
+const entering=wasTab!==ui.tab; if(entering)playMotion($('#app .screen'),[{opacity:.15,transform:'translateX('+ (ui.tab==='calendar'?'-40px':'40px') +')'},{opacity:1,transform:'translateX(0)'}]);
 for(const el of document.querySelectorAll('#app .task')){const old=oldPositions.get(el.querySelector('[data-id]')?.dataset.id),now=el.getBoundingClientRect();const delta=old?old.top-now.top:8;if(!entering&&(Math.abs(delta)>1||!old))el.animate([{transform:'translateY('+delta+'px)',opacity:old?1:0},{transform:'translateY(0)',opacity:1}],{duration:240,easing:'cubic-bezier(.2,.8,.2,1)'});}
 }
 if(ui.tab==='calendar'&&ui.calendarView==='Timeline'){const e=$('.timeline');if(e)e.scrollTop=67*9.7}}
@@ -100,5 +116,47 @@ actions['test-notification']=()=>{if(window.AndroidBridge)AndroidBridge.testRemi
 actions['test-alarm']=()=>{if(window.AndroidBridge)AndroidBridge.testReminder(true);else toast('请安装 Android 手机版')};
 actions['check-update']=()=>{if(window.AndroidBridge?.checkForUpdate)AndroidBridge.checkForUpdate();else toast('自动更新功能在 Android 手机版中提供')};
 
+// Preserve overlay surfaces so edits do not restart their entrance animation.
+const renderOverlayContent=renderOverlay;
+renderOverlay=function(){
+ const oldPage=$('.page'),oldKey=previousPanelKey;
+ const leaving=[...document.querySelectorAll('#overlay > .menu:not(.motion-exit), #overlay > .backdrop:not(.motion-exit), #overlay > .dialog-shade:not(.motion-exit)')];
+ renderOverlayContent();
+ const nextPage=$('.page');
+ if(oldPage&&nextPage&&oldKey===previousPanelKey){
+  oldPage.replaceChildren(...nextPage.childNodes);nextPage.replaceWith(oldPage);
+  if(panel?.type==='editor')bindEditor();
+ }
+ for(const old of leaving){
+  const selector=old.classList.contains('dialog-shade')?'.dialog-shade':old.classList.contains('menu')?'.menu':'.backdrop';
+  if($('#overlay '+selector)||motionReduced())continue;
+  old.inert=true;old.setAttribute('aria-hidden','true');old.style.pointerEvents='none';old.classList.add('motion-exit');
+  old.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+  $('#overlay').append(old);
+  const surface=old.querySelector('.dialog')||old;
+  const transform=surface.classList.contains('dialog')?'translateY(48px)':surface.classList.contains('menu')?'scale(.96)':'none';
+  const animation=playMotion(surface,[{opacity:1,transform:'none'},{opacity:0,transform}],200);
+  if(animation)animation.finished.catch(()=>{}).finally(()=>old.remove());else old.remove();
+ }
+};
+const completeImmediately=actions.complete;
+const completing=new Set();
+actions.complete=button=>{
+ const id=button.dataset.id;if(completing.has(id))return;
+ const task=button.closest('.task');
+ if(motionReduced()||!task){completeImmediately(button);return;}
+ completing.add(id);
+ const checked=button.classList.toggle('checked');button.setAttribute('aria-pressed',String(checked));
+ button.querySelector('span').innerHTML=checked?icon('check'):'';
+ task.classList.toggle('done',checked);
+ playMotion(button.querySelector('span'),[{transform:'scale(.85)'},{transform:'scale(1.12)',offset:.6},{transform:'scale(1)'}],200);
+ const animation=playMotion(task,[{opacity:1,transform:'translateX(0)'},{opacity:.2,transform:'translateX(28px)'}],240);
+ const finish=()=>{completeImmediately(button);completing.delete(id);};
+ if(animation)animation.finished.catch(()=>{}).finally(finish);else finish();
+};
+const filterImmediately=actions.filter;
+actions.filter=button=>{filterImmediately(button);playMotion($('#app .screen'),[{opacity:.4},{opacity:1}],160);};
+const settingsContent=settingsHTML;
+settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.1.1');
 initializeNative();
 render();
