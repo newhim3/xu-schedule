@@ -1,7 +1,7 @@
 {
-  "versionCode": 3,
-  "versionName": "1.1.1",
-  "sha256": "a6b4bce7e13d08b0665907b95543f7d56039fbc62f96ab0ba4e20d9d5a36fc38",
-  "releaseNotes": "修复动效未实际播放：保留底部导航并平滑滑动选中背景；加强页面切换、弹窗进出、勾选绘制和任务完成反馈；支持减少动态效果。",
-  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.1.1/xu-schedule.apk"
+  "versionCode": 4,
+  "versionName": "1.1.2",
+  "sha256": "0aacb381339d764b6d503542532ec359de8f88dcb1983f052e59dbb29d5ae853",
+  "releaseNotes": "重做连续页面动效：日历与待办双层衔接；设置页前后层级联动与滚动位置保留；新建事项从底部展开；快速返回和重新打开可从当前进度接续。",
+  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.1.2/xu-schedule.apk"
 }
