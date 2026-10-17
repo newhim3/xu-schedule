@@ -1,7 +1,7 @@
 {
-  "versionCode": 4,
-  "versionName": "1.1.2",
-  "sha256": "0aacb381339d764b6d503542532ec359de8f88dcb1983f052e59dbb29d5ae853",
-  "releaseNotes": "重做连续页面动效：日历与待办双层衔接；设置页前后层级联动与滚动位置保留；新建事项从底部展开；快速返回和重新打开可从当前进度接续。",
-  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.1.2/xu-schedule.apk"
+  "versionCode": 5,
+  "versionName": "1.2.0",
+  "sha256": "e4510048d866ca55391f4bcdcb5884f95cdc10decbda5f8eb7d3266543aa4606",
+  "releaseNotes": "新增年/月/周视图及双指缩放，切月和页面衔接动画；月视图直接展示整月任务，点击日期进入周视图；压缩时间轴，事项按起止时间跨时段显示并为重叠事项分列；待办新增可折叠父子任务及同屏编辑，移除无用筛选；修复周滑动跳月及今日高亮跟随问题，保留指针选时与应用内更新。",
+  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.2.0/xu-schedule.apk"
 }
