@@ -14,7 +14,7 @@ public class ReminderReceiver extends BroadcastReceiver {
     if(!"com.newhim3.xuschedule.REMIND".equals(action)) {ReminderScheduler.restore(context);return;}
     String id=intent.getStringExtra("id");JSONObject item=ReminderScheduler.item(context,id);
     if(item==null && "test-alarm".equals(id)) {
-        item=new JSONObject();try{item.put("title","闹钟测试 · 关闭或稍后提醒");item.put("alarm",true);}catch(Exception ignored){}
+        item=new JSONObject();try{item.put("title",PlannerLanguage.text(context,"闹钟测试 · 关闭或稍后提醒","Alarm test · dismiss or snooze"));item.put("alarm",true);}catch(Exception ignored){}
     }
     if(item==null||item.optBoolean("done"))return;
     ReminderScheduler.next(context,item);
@@ -28,7 +28,7 @@ public class ReminderReceiver extends BroadcastReceiver {
  }
  static void notify(Context context,JSONObject item,String id) {
     PendingIntent open=PendingIntent.getActivity(context,id.hashCode(),new Intent(context,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-    NotificationCompat.Builder builder=new NotificationCompat.Builder(context,ReminderScheduler.REMINDERS).setSmallIcon(R.drawable.ic_launcher).setContentTitle(item.optString("title","日程提醒")).setContentText("日程时间："+item.optString("date")+" "+item.optString("time")).setPriority(NotificationCompat.PRIORITY_HIGH).setContentIntent(open).setAutoCancel(true).setCategory(NotificationCompat.CATEGORY_REMINDER);
+    NotificationCompat.Builder builder=new NotificationCompat.Builder(context,ReminderScheduler.REMINDERS).setSmallIcon(R.drawable.ic_launcher).setContentTitle(item.optString("title",PlannerLanguage.text(context,"日程提醒","Planner reminder"))).setContentText(PlannerLanguage.text(context,"日程时间：","Scheduled: ")+item.optString("date")+" "+item.optString("time")).setPriority(NotificationCompat.PRIORITY_HIGH).setContentIntent(open).setAutoCancel(true).setCategory(NotificationCompat.CATEGORY_REMINDER);
     try {NotificationManagerCompat.from(context).notify(id.hashCode(),builder.build());}catch(SecurityException ignored){}
  }
 }

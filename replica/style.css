@@ -96,3 +96,42 @@ button:focus-visible,a:focus-visible{outline-color:#939393;outline-width:1px}
 .month-status svg{display:block;width:6px;height:6px;margin:-1px}.month-event.done{color:#8b8b8b;background:#ffffff0a;opacity:.7;text-decoration:none}
 .month-event.done .month-event-label{text-decoration:line-through}.month-more{background:#ffffff08;border-radius:3px;min-height:15px;font-size:9px;line-height:15px;color:#8c8c8c;padding:0 2px}
 @media(max-width:350px){.month-cell{min-height:82px}.month-date .number,.month-date>.number:last-child{font-size:16px}.month-event,.month-more{font-size:8px}.task-labels,.task-calendar-tag,.task-parent-tag{max-width:60px}}
+
+/* Goal cards keep the existing compact touch layout and add derived time progress. */
+.goal-card{display:block;padding:10px 12px;border-left:3px solid var(--task-color);background:#292713}
+.goal-card:before{display:none}.goal-card-row{display:flex;align-items:center;gap:6px;min-width:0}
+.goal-card .task-title{font-family:inherit;letter-spacing:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4;font-weight:500}
+.goal-card .task-meta{white-space:normal;font-size:11px;margin-top:5px;line-height:1.5}.goal-note{font-size:12px;line-height:1.45;color:#aaa;margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere}
+.goal-percent{font-size:14px;color:#d7d7d7;align-self:flex-start;padding:10px 0 0 4px}
+.goal-progress{height:9px;border-radius:9px;overflow:hidden;margin:10px 2px 1px;background:#9fb6cf26}
+.goal-progress>span{display:block;width:100%;height:100%;background:#58bea7;border-radius:9px;transform-origin:left;transition:transform 180ms var(--ease-out)}
+.task-children .goal-card{padding:7px 8px}.goal-card.done{border-left-color:#656565}.goal-card.done .goal-note{color:#858585}
+.edit-card .planner-notes{font-size:13px;height:76px;min-height:76px;margin-top:7px}.field-caption{font-size:12px;color:#a7a7a7}
+.row input[type=number]{max-width:46%;width:110px;text-align:right;font-size:13px;padding:7px 0}
+.schedule-dates .time-fields{border:0;padding:2px 0}.schedule-dates input{min-height:38px}
+.time-block{padding:0}.time-block-main{display:block;text-align:left;width:100%;height:100%;padding:5px 37px 5px 7px;overflow:hidden;min-width:0}
+.time-block .session-check{position:absolute;right:0;top:0;width:34px;height:100%;max-height:44px;min-height:0;display:grid;place-items:center;padding:0}
+.session-check>span{display:grid;place-items:center;width:17px;height:17px;border:1.5px solid #a8b0b9;border-radius:4px}.session-check.checked>span{background:#6b9383;border-color:#6b9383}.session-check svg{width:12px;height:12px}
+.time-block.done{opacity:.65}.time-block.done strong{text-decoration:line-through}.time-note{font-size:11px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere;color:#b4b4b4;display:block;margin-top:3px}
+.time-block.short .time-block-main{padding-top:1px}.time-block.short .time-note{display:none}
+.planner-dock{gap:9px;width:min(calc(100% - 24px),456px)}.planner-dock .round{width:46px;height:46px;flex-shrink:0}
+.planner-dock .switcher{flex:1;width:auto;min-width:0;max-width:none}.planner-dock .switcher button{min-width:0;font-size:12px;padding:8px 3px;min-height:38px}
+.planner-dock .switcher:before{width:calc((100% - 8px)/3)}
+.planner-dock .switcher:has([data-tab=calendar].active):before{transform:translateX(0)}.planner-dock .switcher:has([data-tab=todos].active):before{transform:translateX(100%)}.planner-dock .switcher:has([data-tab=insights].active):before{transform:translateX(200%)}
+.insight-list-heading{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#b7b7b7;margin:10px 0 14px}.insight-list-heading button{font-size:11px;min-height:40px;color:#8c9fbf}
+.insight-card{border-radius:15px;background:#262626;border-left:3px solid #41464d;padding:14px 14px 8px;margin:0 0 12px}.insight-card.pinned{border-left-color:#7c9cc8;background:linear-gradient(110deg,#263549,#242424)}
+.insight-main{display:block;text-align:left;width:100%;padding:0}.insight-title{display:block;font-size:15px;font-weight:500;line-height:1.65;overflow-wrap:anywhere}.insight-notes{display:block;color:#a3a3a3;line-height:1.6;font-size:12px;white-space:pre-wrap;margin-top:6px}.insight-main small{display:block;font-size:11px;color:#9098a2;margin-top:10px}
+.insight-actions{display:flex;justify-content:flex-end;gap:16px;margin-top:4px}.insight-actions button{color:#a3bcde;font-size:12px;min-height:40px;padding:0 3px}.insight-count{font-weight:400;display:inline-block}
+.insight-editor .insight-title-input{font-size:18px;min-height:130px;height:130px;margin-top:12px;font-family:inherit}
+body,button,input,textarea,select,.task-title,.day .number,.day .lunar{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:normal}
+.locale-en .lunar{visibility:hidden}.row select[data-planner-language]{min-height:38px}
+.month-items{gap:3px}.month-event{display:block;padding:3px;border-left:2px solid color-mix(in srgb,var(--event-color) 60%,transparent);line-height:1.35;font-size:10px}
+.month-event-label{display:block;white-space:normal;text-overflow:clip;overflow:visible;overflow-wrap:anywhere}
+.month-event time{display:block;font-size:8px;line-height:1.35;opacity:.8;overflow-wrap:anywhere;margin-top:1px}
+.dense-day .month-event{padding:2px;font-size:9px}.month-cell{height:auto;vertical-align:top}
+.screen.calendar-glass{position:relative;isolation:isolate;background:radial-gradient(ellipse at 12% 11%,#9ca4bf66,transparent 48%),radial-gradient(ellipse at 90% 35%,#c2959870,transparent 55%),linear-gradient(175deg,#364d60,#574c61 56%,#2d4659)}
+.calendar-glass:before{content:"";position:absolute;inset:35% 0 0;z-index:-1;background:linear-gradient(180deg,#132c3f66,#122837bb);clip-path:polygon(0 19%,12% 28%,25% 14%,38% 26%,55% 8%,74% 23%,87% 11%,100% 24%,100% 100%,0 100%);pointer-events:none}
+.calendar-glass .calendar-viewport{background:#1019251c;border-radius:14px;padding:4px}.calendar-glass .month-block{background:transparent}.calendar-glass .month-event{background:color-mix(in srgb,var(--event-color) 20%,#18253570);color:#e5e8ed}
+.calendar-glass .month-date .number{color:#eceff3}.calendar-glass .weekdays{color:#c7cbd1}.calendar-glass .month-section-title{color:#e1e4e8;border-color:#ffffff24}
+.calendar-glass .month-event.done{background:#ffffff0b;color:#a8adb4}.calendar-glass .month-scroll{scroll-padding-top:10px}
+@media(prefers-reduced-motion:reduce){.goal-progress>span{transition:none}}

@@ -21,10 +21,10 @@ public class AlarmActivity extends Activity {
   if(Build.VERSION.SDK_INT>=27){setShowWhenLocked(true);setTurnScreenOn(true);}else getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED|WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
   getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);id=getIntent().getStringExtra("id");
   LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setGravity(Gravity.CENTER);box.setPadding(36,40,36,40);box.setBackgroundColor(Color.rgb(25,25,25));
-  TextView heading=new TextView(this);heading.setText("日程闹钟");heading.setTextSize(18);heading.setTextColor(Color.rgb(190,160,65));heading.setGravity(Gravity.CENTER);box.addView(heading);
+  TextView heading=new TextView(this);heading.setText(PlannerLanguage.text(this,"日程闹钟","Planner alarm"));heading.setTextSize(18);heading.setTextColor(Color.rgb(190,160,65));heading.setGravity(Gravity.CENTER);box.addView(heading);
   TextView title=new TextView(this);titleView=title;title.setText(getIntent().getStringExtra("title"));title.setTextSize(28);title.setTextColor(Color.WHITE);title.setGravity(Gravity.CENTER);title.setPadding(0,35,0,65);box.addView(title);
-  Button snooze=new Button(this);snooze.setText("稍后提醒 · 5分钟");snooze.setOnClickListener(v->stop(AlarmService.SNOOZE));box.addView(snooze,new LinearLayout.LayoutParams(-1,64));
-  Button dismiss=new Button(this);dismiss.setText("关闭闹钟");dismiss.setOnClickListener(v->stop(AlarmService.STOP));box.addView(dismiss,new LinearLayout.LayoutParams(-1,64));setContentView(box);
+  Button snooze=new Button(this);snooze.setText(PlannerLanguage.text(this,"稍后提醒 · 5分钟","Snooze · 5 minutes"));snooze.setOnClickListener(v->stop(AlarmService.SNOOZE));box.addView(snooze,new LinearLayout.LayoutParams(-1,64));
+  Button dismiss=new Button(this);dismiss.setText(PlannerLanguage.text(this,"关闭闹钟","Dismiss alarm"));dismiss.setOnClickListener(v->stop(AlarmService.STOP));box.addView(dismiss,new LinearLayout.LayoutParams(-1,64));setContentView(box);
   ContextCompat.registerReceiver(this,stopped,new IntentFilter("com.newhim3.xuschedule.ALARM_STOPPED"),ContextCompat.RECEIVER_NOT_EXPORTED);
  }
  @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);id=intent.getStringExtra("id");if(titleView!=null)titleView.setText(intent.getStringExtra("title"));}

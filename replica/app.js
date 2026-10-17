@@ -478,5 +478,4 @@ importBackupFile=async file=>{
   normalizeHierarchy();persist();render();
  }
 };
-initializeNative();
-render();
+// planner.js installs the goal-driven extension, then initializes the app.

@@ -25,11 +25,11 @@ public final class ReminderScheduler {
     public static void createChannels(Context c) {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationManager manager = c.getSystemService(NotificationManager.class);
-        NotificationChannel reminders = new NotificationChannel(REMINDERS, "日程自动提醒", NotificationManager.IMPORTANCE_HIGH);
-        reminders.setDescription("到达日程提醒时间时发出通知"); reminders.enableVibration(true);
+        NotificationChannel reminders = new NotificationChannel(REMINDERS, PlannerLanguage.text(c,"日程自动提醒","Scheduled reminders"), NotificationManager.IMPORTANCE_HIGH);
+        reminders.setDescription(PlannerLanguage.text(c,"到达日程提醒时间时发出通知","Notifications for scheduled items")); reminders.enableVibration(true);
         manager.createNotificationChannel(reminders);
-        NotificationChannel alarms = new NotificationChannel(ALARMS, "日程闹钟", NotificationManager.IMPORTANCE_HIGH);
-        alarms.setDescription("响铃、稍后提醒和关闭闹钟"); alarms.setSound(null, null); alarms.enableVibration(false);
+        NotificationChannel alarms = new NotificationChannel(ALARMS, PlannerLanguage.text(c,"日程闹钟","Planner alarms"), NotificationManager.IMPORTANCE_HIGH);
+        alarms.setDescription(PlannerLanguage.text(c,"响铃、稍后提醒和关闭闹钟","Ringing, snooze and dismiss")); alarms.setSound(null, null); alarms.enableVibration(false);
         manager.createNotificationChannel(alarms);
     }
     public static boolean exactAllowed(Context c) {

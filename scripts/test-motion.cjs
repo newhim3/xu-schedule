@@ -5,7 +5,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 
 (async()=>{
- const allowed=new Set(['index.html','app.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const allowed=new Set(['index.html','app.js','planner.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
  const server=http.createServer((req,res)=>{
   const name=req.url==='/'?'index.html':req.url.slice(1);
   if(!allowed.has(name)){res.writeHead(404).end();return;}
@@ -25,12 +25,16 @@ const assert=require('node:assert/strict');
   assert(await page.evaluate(()=>document.querySelector('.screen').getAnimations().length>0),'Tab content must animate');
   assert.equal(await page.locator('.motion-scene').count(),1,'Outgoing tab must remain visible during transition');
   assert(await page.evaluate(()=>document.querySelector('.switcher').getAnimations({subtree:true}).length>0),'Segment indicator must actually animate');
-  await page.waitForTimeout(320);
-  assert.equal(await page.locator('.motion-scene').count(),0,'Old tab layer must be released');
+  await page.locator('.motion-scene').waitFor({state:'detached',timeout:1500});
+  assert.equal(await page.locator('.motion-scene').count(),0,'Old tab layer must be released after animation finishes');
+  for(let cycle=0;cycle<12;cycle++){
+   await page.locator(`[data-tab="${cycle%2?'calendar':'todos'}"]`).click();
+   await page.locator('.motion-scene').waitFor({state:'detached',timeout:1500});
+  }
   await page.locator('[data-action="more"]').click();
   await page.locator('[data-action="settings"]').click();
   await page.waitForTimeout(320);
-  await page.evaluate(()=>{window.settingsSurface=document.querySelector('.page');settingsSurface.scrollTop=120;window.settingsScroll=settingsSurface.scrollTop;document.querySelector('[data-sub="filter"]').click();});
+  await page.evaluate(()=>{window.settingsSurface=document.querySelector('.page');settingsSurface.scrollTop=120;window.settingsScroll=settingsSurface.scrollTop;document.querySelector('[data-sub="reminder-type"]').click();});
   assert.equal(await page.locator('.page.navigation-outgoing').count(),1,'Parent page must remain behind pushed page');
   assert(await page.evaluate(()=>document.querySelector('.page:not(.navigation-outgoing)').getAnimations().length>0),'Child must slide over its retained parent');
   await page.waitForTimeout(90);

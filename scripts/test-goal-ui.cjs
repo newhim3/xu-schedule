@@ -1,0 +1,54 @@
+const {chromium}=require('playwright');
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+(async()=>{
+ const allowed=new Set(['index.html','app.js','planner.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const server=http.createServer((req,res)=>{const name=req.url==='/'?'index.html':req.url.slice(1);if(!allowed.has(name)){res.writeHead(404).end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.join(__dirname,'../replica',name)));});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
+ try{
+  browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.clock.setFixedTime(new Date('2026-10-18T04:00:00Z'));await page.goto(`http://127.0.0.1:${server.address().port}`);
+  const action=name=>page.locator(`[data-action="${name}"]`).first().click(),tab=name=>page.locator(`[data-tab="${name}"]`).click();
+  assert.deepEqual(await page.evaluate(()=>{const previous=data.items;data.items=Array.from({length:5},(_,importance)=>({id:String(importance),kind:'todo',title:'goal',date:'',calendar:'Default',importance}));const result=todoPool().map(x=>x.importance);data.items=previous;return result;}),[4,3,2,1,0],'All five importance levels sort in the requested order');
+  await action('new');await page.locator('#title').fill('数据结构');
+  assert.equal(await page.locator('[data-draft="importance"]').count(),1,'Goal editor exposes importance');
+  await page.locator('[data-draft="importance"]').selectOption('2');await page.locator('[data-draft="estimateHours"]').fill('10');await page.locator('[data-draft="notes"]').fill('每天推进一个知识点');await action('save');await page.waitForTimeout(300);
+  const goalId=await page.evaluate(()=>data.items.find(x=>x.title==='数据结构').id);
+  assert((await page.locator(`.task[data-task-id="${goalId}"]`).textContent()).includes('每天推进一个知识点'),'Notes appear under goal title');
+  assert.equal(await page.locator(`.task[data-task-id="${goalId}"] .goal-progress`).count(),1,'Optional estimate creates a progress bar');
+  assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),0);
+  await tab('calendar');await page.waitForTimeout(300);await action('new');
+  await page.locator('[data-draft="time"]').fill('08:00');await page.locator('[data-draft="endTime"]').fill('10:00');await page.locator('[data-draft="goalId"]').selectOption(goalId);await action('save');await page.waitForTimeout(300);
+  const sessionId=await page.evaluate(id=>data.items.find(x=>x.goalId===id).id,goalId);
+  const finish=id=>page.locator(`.time-block[data-id="${id}"] [data-action="finish-session"]`);
+  assert.equal(await finish(sessionId).count(),1,'Daily scheduled tasks expose end-gated completion');
+  await finish(sessionId).click();await page.waitForTimeout(260);assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),120);
+  await tab('todos');await page.waitForTimeout(260);assert((await page.locator(`.task[data-task-id="${goalId}"]`).textContent()).includes('20%'),'Calendar completion updates goal progress');
+  await tab('calendar');await page.waitForTimeout(260);await finish(sessionId).click();await page.waitForTimeout(260);assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),0,'Undo synchronizes goal time');
+  await action('new');await page.locator('[data-draft="time"]').fill('13:00');await page.locator('[data-draft="endTime"]').fill('14:00');await page.locator('[data-draft="goalId"]').selectOption(goalId);await action('save');await page.waitForTimeout(260);
+  const futureId=await page.evaluate(id=>data.items.find(x=>x.goalId===id&&x.time==='13:00').id,goalId);assert(await finish(futureId).isDisabled(),'Future task stays locked');
+  await page.evaluate(id=>actions['finish-session']({dataset:{id}}),futureId);assert.equal(await page.evaluate(id=>data.items.find(x=>x.id===id).done,futureId),false,'Direct action cannot bypass gate');
+  await page.clock.setFixedTime(new Date('2026-10-18T06:01:00Z'));await page.waitForTimeout(1200);assert(!(await finish(futureId).isDisabled()),'End time automatically unlocks checkbox');await finish(futureId).click();await page.waitForTimeout(260);assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),60);
+  assert.equal(await page.locator('[data-tab="insights"]').count(),1,'Third navigation opens Insights');await tab('insights');await page.waitForTimeout(280);await action('new');
+  await page.locator('[data-insight-field="title"]').fill('先做十分钟，比等状态好更可靠');await action('insight-save');await page.waitForTimeout(280);
+  assert.equal(await page.locator('.insight-card').count(),1);await action('insight-validate');await action('insight-validate');assert.equal(await page.evaluate(()=>data.insights[0].validationDates.length),2);
+  await action('insight-pin');assert.equal(await page.evaluate(()=>data.insights[0].pinned),true);await page.reload();await tab('insights');await page.waitForTimeout(280);assert((await page.locator('.insight-card').textContent()).includes('2'),'Insights validation survives restart');
+  await action('settings');await page.waitForTimeout(300);assert.equal(await page.locator('[data-planner-language]').count(),1,'Language belongs in Settings');
+  await page.locator('[data-planner-language]').selectOption('en');await page.waitForTimeout(100);assert.equal(await page.locator('html').getAttribute('lang'),'en');
+  await action('close-panel');await page.waitForTimeout(300);assert.equal(await page.locator('[data-tab="todos"]').textContent(),'Goals','Retained dock updates to English');
+  await tab('todos');await page.waitForTimeout(280);assert((await page.locator('.header h1').textContent()).includes('Goals'));assert.equal(await page.locator('[data-todo-filter="Completed"]').textContent(),'Completed');
+  await page.evaluate(()=>{window.backupCapture=null;window.AndroidBridge={exportBackup:json=>window.backupCapture=JSON.parse(json)};actions['backup-export']();});
+  const exported=await page.evaluate(()=>window.backupCapture);assert.equal(exported.insights[0].validationDates.length,2);assert.equal(exported.items.find(x=>x.id===goalId).estimatedMinutes,600);assert.equal(exported.settings.language,'en');
+  await page.evaluate(async()=>{const saved=window.backupCapture;data.items=[];data.insights=[];await importBackupFile(new File([JSON.stringify(saved)],'planner.json'));});
+  assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),60,'Backup restores completion-to-goal accounting');
+  await page.evaluate(()=>{for(let i=0;i<14;i++)data.items.push({id:'dense-'+i,kind:'event',taskBlock:true,title:'完整任务 '+i,date:'2026-10-18',time:'07:30',endDate:'2026-10-18',endTime:'08:00',calendar:'Default',color:'#5ba6a0',done:false});persist();});
+  await tab('calendar');await page.waitForTimeout(280);await action('view-menu');await page.locator('[data-view="Month"]').click();await page.waitForTimeout(280);
+  const dense=page.locator('.calendar-stage .month-cell[data-date="2026-10-18"]');
+  assert(await dense.locator('.month-event').count()>=14,'Month never hides tasks behind a +N cap');assert(await dense.locator('.month-event time').count()>=14,'Month shows task time, not just a title');
+  assert.equal(await page.locator('.screen.calendar-glass').count(),1,'Glass background is applied');
+  fs.mkdirSync('reference-analysis',{recursive:true});await page.screenshot({path:'reference-analysis/v1.3-month.png'});
+  await page.locator('.month-date[data-date="2026-10-18"]').click();await page.waitForTimeout(280);await tab('todos');await page.waitForTimeout(280);await page.screenshot({path:'reference-analysis/v1.3-goals.png'});await tab('insights');await page.waitForTimeout(280);await page.screenshot({path:'reference-analysis/v1.3-insights.png'});
+  for(const width of [320,375,393,480]){await page.setViewportSize({width,height:852});assert(!(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)),'Mobile layout stays inside viewport at '+width);}
+  console.log('PASS: goals and importance order, ended-only calendar accounting and undo, insights validation/pins, language, complete backup restore, dense month with times, mobile widths and no JS errors');
+  assert.deepEqual(errors,[]);
+ }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+})().catch(error=>{console.error(error);process.exitCode=1;});

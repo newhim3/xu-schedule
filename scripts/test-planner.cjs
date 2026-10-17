@@ -1,7 +1,7 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
- const allowed=new Set(['index.html','app.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const allowed=new Set(['index.html','app.js','planner.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
  const server=http.createServer((req,res)=>{const file=req.url==='/'?'index.html':req.url.slice(1);if(!allowed.has(file)){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript; charset=utf-8':file.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.join(__dirname,'../replica',file)));});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
@@ -12,17 +12,17 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   const click=action=>page.locator(`[data-action="${action}"]`).first().click();
   assert.equal(await page.locator('[data-todo-filter]').count(),3,'Only All, pending and completed filters remain');
-  await click('new');await page.getByRole('textbox',{name:'Title',exact:true}).fill('论文准备');
-  await click('child-add');await page.getByRole('textbox',{name:'子任务名称',exact:true}).fill('整理提纲');
-  await click('child-add');await page.getByRole('textbox',{name:'子任务名称',exact:true}).nth(1).fill('完成初稿');
+  await click('new');await page.locator('#title').fill('论文准备');
+  await click('child-add');await page.locator('[data-child-title]').fill('整理提纲');
+  await click('child-add');await page.locator('[data-child-title]').nth(1).fill('完成初稿');
   await click('save');await page.waitForTimeout(320);
   assert.equal(await page.locator('.task-children .task').count(),2,'Parent owns two nested tasks');
   let parentId=await page.evaluate(()=>data.items.find(item=>item.title==='论文准备').id);
   assert.equal(await page.evaluate(id=>data.items.filter(item=>item.parentId===id).length,parentId),2);
   await page.reload();assert.equal(await page.locator('.task-children .task').count(),2,'Hierarchy persists');
   await page.locator(`[data-action="edit"][data-id="${parentId}"]`).click();
-  assert.equal(await page.getByRole('textbox',{name:'子任务名称',exact:true}).count(),2,'Children editable with parent');
-  await page.getByRole('textbox',{name:'子任务名称',exact:true}).first().fill('整理提纲和资料');
+  assert.equal(await page.locator('[data-child-title]').count(),2,'Children editable with parent');
+  await page.locator('[data-child-title]').first().fill('整理提纲和资料');
   fs.mkdirSync(path.join(__dirname,'../reference-analysis'),{recursive:true});
   await page.waitForTimeout(320);
   await page.screenshot({path:'reference-analysis/v1.2-parent-editor.png'});
@@ -54,7 +54,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   async function pinch(){await touch('touchStart',[[80,300],[310,300]]);await touch('touchMove',[[145,300],[245,300]]);await touch('touchEnd',[]);await page.waitForTimeout(300);}
   await pinch();assert.equal(await page.locator('.calendar-stage').getAttribute('data-level'),'Month','Pinch week → month');
   assert.equal(await page.locator('.month-block[data-month="2026-10"] .month-cell').count(),31,'Month contains its actual dates without boxed adjacent-month cells');
-  assert(await page.locator('.month-event').allTextContents().then(t=>t.includes('项目讨论')&&t.includes('第二天事项')),'Month shows tasks on multiple dates together');
+  assert(await page.locator('.month-event-label').allTextContents().then(t=>t.includes('项目讨论')&&t.includes('第二天事项')),'Month shows tasks on multiple dates together');
   await page.screenshot({path:'reference-analysis/v1.2-month.png'});
   await click('month-next');assert(await page.locator('.calendar-outgoing').count()>0,'Month arrows actually animate');await page.waitForTimeout(300);
   assert.equal(await page.evaluate(()=>ui.month),'2026-11');

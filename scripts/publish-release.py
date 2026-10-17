@@ -28,7 +28,7 @@ validation = json.loads(run("gh", "api", "repos/" + repo + "/actions/runs/" + st
 assert validation["conclusion"] == "success" and validation["head_sha"] == meta["sourceCommit"], "Source validation not successful"
 paths = [Path("android-webview", name) for name in ("app/build.gradle", "build.gradle", "settings.gradle", "gradle.properties", "app/src/main/AndroidManifest.xml")]
 paths += list(Path("android-webview/app/src/main/java").rglob("*.java")) + list(Path("android-webview/app/src/main/res").rglob("*.xml"))
-paths += [Path("replica", name) for name in ("index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest", "sw.js")]
+paths += [Path("replica", name) for name in ("index.html", "style.css", "app.js", "planner.js", "icon.svg", "manifest.webmanifest", "sw.js")]
 source_hash = hashlib.sha256()
 for path in sorted(paths, key=lambda p: p.as_posix()):
     source_hash.update(path.as_posix().encode())
@@ -52,7 +52,7 @@ assert "versionCode='" + str(meta["versionCode"]) + "'" in package
 assert "versionName='" + meta["versionName"] + "'" in package
 # Ensure the published package contains the current reviewed mobile UI.
 with zipfile.ZipFile(apk) as archive:
-    for name in ("index.html", "style.css", "app.js", "icon.svg", "manifest.webmanifest", "sw.js"):
+    for name in ("index.html", "style.css", "app.js", "planner.js", "icon.svg", "manifest.webmanifest", "sw.js"):
         assert archive.read("assets/" + name) == Path("replica", name).read_bytes(), "APK web source differs: " + name
 
 tag = "v" + meta["versionName"]

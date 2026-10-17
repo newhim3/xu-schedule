@@ -1,7 +1,7 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
- const allowed=new Set(['index.html','app.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const allowed=new Set(['index.html','app.js','planner.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
  const server=http.createServer((req,res)=>{const name=req.url==='/'?'index.html':req.url.slice(1);if(!allowed.has(name)){res.writeHead(404).end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.join(__dirname,'../replica',name)));});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
@@ -18,16 +18,16 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   assert((await task('child').textContent()).includes('已完成'),'Completed subtask has a clear completed label');
   assert.deepEqual(await page.locator('.task-children .task').evaluateAll(elements=>elements.map(element=>element.dataset.taskId)),originalOrder,'Completed child retains its position');
   await page.reload();assert.equal(await task('child').count(),1,'Completed child remains after restart');
-  assert.deepEqual(await page.locator('[data-todo-filter]').allTextContents(),['All','未完成','已完成'],'Only three requested filters are shown');
+  assert.deepEqual(await page.locator('[data-todo-filter]').allTextContents(),['全部','未完成','已完成'],'Only three requested filters are shown');
   await page.locator('[data-todo-filter="Pending"]').click();await page.waitForTimeout(260);
   assert.equal(await task('child').count(),0,'Pending filter excludes completed child');assert.equal(await task('sibling').count(),1);
   await page.locator('[data-todo-filter="Completed"]').click();await page.waitForTimeout(260);
   assert.equal(await task('child').count(),1,'Completed filter includes child');assert.equal(await task('parent').count(),1,'Completed child keeps parent context');assert.equal(await task('sibling').count(),0);
-  await page.locator('[data-action="new"]').click();await page.getByRole('textbox',{name:'Title',exact:true}).fill('新添加的任务');await page.locator('[data-action="save"]').click();await page.waitForTimeout(300);
+  await page.locator('[data-action="new"]').click();await page.locator('#title').fill('新添加的任务');await page.locator('[data-action="save"]').click();await page.waitForTimeout(300);
   assert.equal(await page.locator('[data-todo-filter="All"]').getAttribute('aria-pressed'),'true','Adding a task returns to All');
   assert((await page.locator('.task-title').allTextContents()).includes('新添加的任务'));
   await page.locator('[data-action="edit"][data-id="parent"]').click();await page.waitForTimeout(300);
-  const title=page.getByRole('textbox',{name:'Title',exact:true});await title.focus();
+  const title=page.locator('#title');await title.focus();
   assert.equal(await title.evaluate(element=>getComputedStyle(element).boxShadow),'none','Focused editor title must not get a blue rectangular shadow');
   assert.equal(await title.evaluate(element=>getComputedStyle(element).outlineStyle),'none','Focused editor title must not get an outline');
   assert(await title.evaluate(element=>parseFloat(getComputedStyle(element).fontSize)<=19),'Editor title matches compact mobile type scale');
