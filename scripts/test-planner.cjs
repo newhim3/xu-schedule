@@ -11,7 +11,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   await page.clock.setFixedTime(new Date('2026-10-17T07:00:00Z'));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   const click=action=>page.locator(`[data-action="${action}"]`).first().click();
-  assert.equal(await page.locator('.chips').count(),0,'Unused todo filter row removed');
+  assert.equal(await page.locator('[data-todo-filter]').count(),3,'Only All, pending and completed filters remain');
   await click('new');await page.getByRole('textbox',{name:'Title',exact:true}).fill('论文准备');
   await click('child-add');await page.getByRole('textbox',{name:'子任务名称',exact:true}).fill('整理提纲');
   await click('child-add');await page.getByRole('textbox',{name:'子任务名称',exact:true}).nth(1).fill('完成初稿');
@@ -53,7 +53,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   await click('month-prev');await page.waitForTimeout(280);
   async function pinch(){await touch('touchStart',[[80,300],[310,300]]);await touch('touchMove',[[145,300],[245,300]]);await touch('touchEnd',[]);await page.waitForTimeout(300);}
   await pinch();assert.equal(await page.locator('.calendar-stage').getAttribute('data-level'),'Month','Pinch week → month');
-  assert.equal(await page.locator('.month-grid .month-cell').count(),42);
+  assert.equal(await page.locator('.month-block[data-month="2026-10"] .month-cell').count(),31,'Month contains its actual dates without boxed adjacent-month cells');
   assert(await page.locator('.month-event').allTextContents().then(t=>t.includes('项目讨论')&&t.includes('第二天事项')),'Month shows tasks on multiple dates together');
   await page.screenshot({path:'reference-analysis/v1.2-month.png'});
   await click('month-next');assert(await page.locator('.calendar-outgoing').count()>0,'Month arrows actually animate');await page.waitForTimeout(300);

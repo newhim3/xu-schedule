@@ -1,0 +1,60 @@
+const {chromium}=require('playwright');
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+(async()=>{
+ const allowed=new Set(['index.html','app.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const server=http.createServer((req,res)=>{const name=req.url==='/'?'index.html':req.url.slice(1);if(!allowed.has(name)){res.writeHead(404).end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.join(__dirname,'../replica',name)));});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
+ try{
+  browser=await chromium.launch({channel:'msedge',headless:true});
+  const page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true}),errors=[];
+  page.on('pageerror',error=>errors.push(error.message));await page.clock.setFixedTime(new Date('2026-10-17T13:00:00Z'));
+  await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await page.evaluate(()=>{data.settings.showCompleted=false;data.items=[{id:'parent',kind:'todo',title:'学习计划',date:'2026-10-17',calendar:'Default',color:'#b89b35',done:false},{id:'child',parentId:'parent',kind:'todo',title:'概率论练习',date:'',calendar:'Default',color:'#b89b35',done:false},{id:'sibling',parentId:'parent',kind:'todo',title:'整理笔记',date:'',calendar:'Default',color:'#b89b35',done:false}];persist();render();});
+  const task=id=>page.locator(`.task[data-task-id="${id}"]`),complete=id=>page.locator(`[data-action="complete"][data-id="${id}"]`).click();
+  const originalOrder=await page.locator('.task-children .task').evaluateAll(elements=>elements.map(element=>element.dataset.taskId));
+  await complete('child');await page.waitForTimeout(350);
+  assert.equal(await task('child').count(),1,'Completing a subtask must not remove it from All, even with a legacy hide-completed setting');
+  assert(await task('child').evaluate(element=>element.classList.contains('done')),'Completed subtask stays visibly grey');
+  assert((await task('child').textContent()).includes('已完成'),'Completed subtask has a clear completed label');
+  assert.deepEqual(await page.locator('.task-children .task').evaluateAll(elements=>elements.map(element=>element.dataset.taskId)),originalOrder,'Completed child retains its position');
+  await page.reload();assert.equal(await task('child').count(),1,'Completed child remains after restart');
+  assert.deepEqual(await page.locator('[data-todo-filter]').allTextContents(),['All','未完成','已完成'],'Only three requested filters are shown');
+  await page.locator('[data-todo-filter="Pending"]').click();await page.waitForTimeout(260);
+  assert.equal(await task('child').count(),0,'Pending filter excludes completed child');assert.equal(await task('sibling').count(),1);
+  await page.locator('[data-todo-filter="Completed"]').click();await page.waitForTimeout(260);
+  assert.equal(await task('child').count(),1,'Completed filter includes child');assert.equal(await task('parent').count(),1,'Completed child keeps parent context');assert.equal(await task('sibling').count(),0);
+  await page.locator('[data-action="new"]').click();await page.getByRole('textbox',{name:'Title',exact:true}).fill('新添加的任务');await page.locator('[data-action="save"]').click();await page.waitForTimeout(300);
+  assert.equal(await page.locator('[data-todo-filter="All"]').getAttribute('aria-pressed'),'true','Adding a task returns to All');
+  assert((await page.locator('.task-title').allTextContents()).includes('新添加的任务'));
+  await page.locator('[data-action="edit"][data-id="parent"]').click();await page.waitForTimeout(300);
+  const title=page.getByRole('textbox',{name:'Title',exact:true});await title.focus();
+  assert.equal(await title.evaluate(element=>getComputedStyle(element).boxShadow),'none','Focused editor title must not get a blue rectangular shadow');
+  assert.equal(await title.evaluate(element=>getComputedStyle(element).outlineStyle),'none','Focused editor title must not get an outline');
+  assert(await title.evaluate(element=>parseFloat(getComputedStyle(element).fontSize)<=19),'Editor title matches compact mobile type scale');
+  assert((await title.boundingBox()).height<=112,'Editor avoids oversized blank title area');
+  for(const field of await page.locator('.page input:not([type="checkbox"]),.page select,.page textarea').all()){await field.focus();assert.equal(await field.evaluate(element=>getComputedStyle(element).boxShadow),'none','Every editor input must be free of blue focus boxes');}
+  fs.mkdirSync('reference-analysis',{recursive:true});await title.focus();await page.screenshot({path:'reference-analysis/v1.2.1-editor.png'});
+  await page.locator('[data-action="close-panel"]').click();await page.waitForTimeout(300);
+  assert(await task('parent').evaluate(element=>element.getBoundingClientRect().height<=64),'Root task is visually more compact');
+  await page.screenshot({path:'reference-analysis/v1.2.1-todos.png'});
+  await page.locator('[data-tab="calendar"]').click();await page.waitForTimeout(280);
+  await page.locator('[data-action="view-menu"]').click();await page.locator('[data-view="Month"]').click();await page.waitForTimeout(280);
+  assert.equal(await page.locator('.month-grid').first().evaluate(element=>getComputedStyle(element).borderTopWidth),'0px','Month layout must not draw a boxed calendar grid');
+  assert.equal(await page.locator('.month-cell').first().evaluate(element=>getComputedStyle(element).borderRightWidth),'0px','Dates have no individual borders');
+  assert.deepEqual(await page.locator('.month-block').evaluateAll(elements=>elements.map(element=>element.dataset.month)),['2026-10','2026-11'],'Months appear continuously like the mobile reference');
+  assert.equal(await page.locator('.month-date[data-date="2026-10-17"] .is-today').count(),1,'Today remains the only filled circle');
+  const monthNumber=page.locator('.month-date[data-date="2026-10-18"] .number');
+  assert(await monthNumber.evaluate(element=>parseFloat(getComputedStyle(element).fontSize)>=16),'Month dates retain the reference readable proportions, not the old lunar-label size');
+  await page.setViewportSize({width:320,height:852});assert.notEqual(await monthNumber.evaluate(element=>getComputedStyle(element).display),'none','Month dates must not inherit the old narrow-screen lunar-label hiding rule');await page.setViewportSize({width:393,height:852});
+  await page.screenshot({path:'reference-analysis/v1.2.1-month.png'});
+  await page.locator('.month-scroll').evaluate(element=>element.scrollTop=100);const monthScroll=await page.locator('.month-scroll').evaluate(element=>element.scrollTop);
+  await page.locator('.month-event[data-id="parent"]').click();await page.waitForTimeout(280);await page.locator('[data-action="close-panel"]').click();await page.waitForTimeout(280);
+  assert.equal(await page.locator('.month-scroll').evaluate(element=>element.scrollTop),monthScroll,'Closing editor preserves monthly scroll position');
+  await page.locator('.month-date[data-date="2026-11-02"]').click();await page.waitForTimeout(280);
+  assert.equal(await page.locator('.calendar-stage').getAttribute('data-level'),'Week','Continuous month dates still enter the correct week');
+  assert.equal(await page.locator('.daily-timeline').getAttribute('aria-label'),'2026-11-02 时间轴');
+  for(const width of [320,375,393,480]){await page.setViewportSize({width,height:852});assert(!(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)),'Compact layout must not overflow at '+width);}
+  assert.deepEqual(errors,[]);
+  console.log('PASS: completed child retained in place, three status filters, All after creation, no input focus boxes, compact proportions, continuous borderless month layout, preserved scroll and correct date drill-down; no JS errors');
+ }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -63,7 +63,7 @@ const chipScroll=$('.chips')?.scrollLeft||0;
 const wasTab=lastRenderTab;lastRenderTab=ui.tab;
 const items=filteredTodos();
 const todoHeader=ui.batch?`<header class="header"><button class="text-button" data-action="batch-cancel">Cancel</button><h1 style="text-align:center;font-size:17px">${ui.selectedIds.size?ui.selectedIds.size+' selected':'Select to-dos'}</h1><button class="text-button" data-action="select-all">${ui.selectedIds.size===items.length&&items.length?'Deselect all':'Select all'}</button></header>`:`<header class="header"><h1>To-dos <small>${data.items.filter(x=>x.kind==='todo'&&!x.done&&included(x)).length}</small></h1>${btn('more','More options','more')}</header>`;
-$('#app').innerHTML=`<main class="screen">${ui.batch||ui.tab==='todos'?todoHeader+todosHTML():calendarHTML()}</main>${ui.batch?batchFooter():dockHTML()}`;
+$('#app').innerHTML=`<main class="screen">${ui.batch||ui.tab==='todos'?todoHeader+(ui.batch?'':todoFiltersHTML())+todosHTML():calendarHTML()}</main>${ui.batch?batchFooter():dockHTML()}`;
 renderOverlay();if($('.chips'))$('.chips').scrollLeft=chipScroll;
 if(oldDock&&!ui.batch){
  const nextDock=$('#app .dock');
@@ -239,7 +239,7 @@ actions.complete=button=>{
 const filterImmediately=actions.filter;
 actions.filter=button=>{filterImmediately(button);playMotion($('#app .screen'),[{opacity:.4},{opacity:1}],160);};
 const settingsContent=settingsHTML;
-settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.2.0');
+settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.2.1');
 
 // Calendar levels share the same dates and event model, with today independent of selection.
 ui.calendarView='Week';ui.year=Number(ui.month.slice(0,4));
@@ -252,7 +252,7 @@ function monthDates(month){
  return Array.from({length:42},(_,i)=>addDays(first,i-offset));
 }
 function itemLastDate(item){return item.endDate&&item.endDate>=item.date?item.endDate:item.date;}
-eventsForDay=date=>data.items.filter(item=>item.date&&included(item)&&(!item.done||data.settings.showCompleted)&&item.date<=date&&itemLastDate(item)>=date);
+eventsForDay=(date,includeCompleted=data.settings.showCompleted)=>data.items.filter(item=>item.date&&included(item)&&(!item.done||includeCompleted)&&item.date<=date&&itemLastDate(item)>=date);
 function dayNumber(date,mini=false){return `<span class="${mini?'mini-number':'number'} ${date===today()?'is-today':''}">${Number(date.slice(8))}</span>`;}
 function weekdaysHTML(){return `<div class="weekdays">${Array.from({length:7},(_,i)=>`<span>${['日','一','二','三','四','五','六'][(i+data.settings.weekStart)%7]}</span>`).join('')}</div>`;}
 function miniMonthHTML(month){
@@ -261,9 +261,14 @@ function miniMonthHTML(month){
  return `<button class="mini-month" data-action="open-month" data-month="${month}" aria-label="${month}"><strong>${Number(month.slice(5))}月</strong><span class="mini-weekdays">${Array.from({length:7},(_,i)=>`<span>${['日','一','二','三','四','五','六'][(i+data.settings.weekStart)%7]}</span>`).join('')}</span><span class="mini-grid">${'<span></span>'.repeat(offset)}${Array.from({length:total},(_,i)=>dayNumber(month+'-'+String(i+1).padStart(2,'0'),true)).join('')}</span></button>`;
 }
 function monthHTML(){
- return `${weekdaysHTML()}<div class="month-grid" role="grid" aria-label="整月日程">${monthDates(ui.month).map(date=>{
-  const items=eventsForDay(date),overflow=items.length-3;
-  return `<div class="month-cell ${date.startsWith(ui.month)?'':'other-month'}" role="gridcell" data-action="day" data-date="${date}"><button class="month-date" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}<span>${lunarLabel(date)}</span></button><div class="month-items">${items.slice(0,3).map(item=>`<button class="month-event ${item.done?'done':''}" data-action="edit" data-id="${esc(item.id)}" style="--event-color:${esc(item.color||'#b89b35')}" aria-label="${esc(item.title)}" title="${esc(item.title)}">${esc(item.title)}</button>`).join('')}${overflow>0?`<button class="month-more" data-action="day" data-date="${date}">+${overflow} 项</button>`:''}</div></div>`;
+ const next=parseDate(ui.month+'-01');next.setMonth(next.getMonth()+1);
+ return `${weekdaysHTML()}<div class="month-scroll" aria-label="连续月份日程">${[ui.month,dateString(next).slice(0,7)].map(month=>{
+  const dates=monthDates(month),last=dates.findLastIndex(date=>date.startsWith(month));
+  return `<section class="month-block" data-month="${month}"><h2 class="month-section-title">${Number(month.slice(5))}月${month.slice(0,4)!==ui.month.slice(0,4)?' · '+month.slice(0,4):''}</h2><div class="month-grid" role="grid" aria-label="${month} 整月日程">${dates.slice(0,Math.ceil((last+1)/7)*7).map(date=>{
+   if(!date.startsWith(month))return '<span class="month-gap" aria-hidden="true"></span>';
+   const items=eventsForDay(date,true),overflow=items.length-2;
+   return `<div class="month-cell" role="gridcell" data-action="day" data-date="${date}"><button class="month-date" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}</button><div class="month-items">${items.slice(0,2).map(item=>`<button class="month-event ${item.done?'done':''}" data-action="edit" data-id="${esc(item.id)}" style="--event-color:${esc(item.color||'#b89b35')}" aria-label="${esc(item.title)}" title="${esc(item.title)}"><span class="month-event-label">${esc(item.title)}</span>${item.kind==='todo'?`<span class="month-status">${item.done?icon('check'):''}</span>`:''}</button>`).join('')}${overflow>0?`<button class="month-more" data-action="day" data-date="${date}">+${overflow} 项</button>`:''}</div></div>`;
+  }).join('')}</div></section>`;
  }).join('')}</div>`;
 }
 function minuteOf(time){if(!/^\d{2}:\d{2}$/.test(time||''))return null;return Number(time.slice(0,2))*60+Number(time.slice(3));}
@@ -320,6 +325,7 @@ actions['go-today']=()=>{ui.selected=today();ui.month=today().slice(0,7);ui.year
 const overlayWithCalendarMenu=renderOverlay;
 renderOverlay=function(){
  overlayWithCalendarMenu();
+ if(menu==='view'&&ui.tab==='todos')$('#overlay > .menu [data-action="show-completed"]')?.remove();
  if(menu==='view'&&ui.tab==='calendar'){
   const surface=$('#overlay > .menu');if(surface)surface.innerHTML=calendarLevels.map((level,i)=>menuItem('calendar-view',['周视图','月视图','年视图'][i],['timeline','grid','calendar'][i],`data-view="${level}"`,ui.calendarView===level)).join('');
  }
@@ -328,15 +334,18 @@ const renderPlannerContent=render;
 render=function(){
  const oldStage=$('#app > .screen .calendar-stage');
  const oldTimeline=oldStage?.querySelector('.daily-timeline'),oldScroll=oldTimeline?.scrollTop;
+ const oldMonths=oldStage?.querySelector('.month-scroll'),oldMonthScroll=oldMonths?.scrollTop,oldMonth=oldStage?.querySelector('.month-block')?.dataset.month;
  const motion=calendarMotion;calendarMotion=null;
  renderPlannerContent();
  const stage=$('#app > .screen .calendar-stage');if(!stage)return;
  const timeline=stage.querySelector('.daily-timeline');
  if(timeline)timeline.scrollTop=oldScroll!==undefined?oldScroll:8*HOUR_HEIGHT;
+ const months=stage.querySelector('.month-scroll');if(months)months.scrollTop=oldMonth===ui.month?oldMonthScroll||0:0;
  if(!oldStage||!motion||motionReduced())return;
  const outgoing=document.createElement('div');outgoing.className='calendar-outgoing';outgoing.inert=true;outgoing.setAttribute('aria-hidden','true');
  oldStage.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));outgoing.append(oldStage);stage.parentNode.append(outgoing);
  if(oldTimeline)oldTimeline.scrollTop=oldScroll;
+ if(oldMonths)oldMonths.scrollTop=oldMonthScroll;
  if(motion.origin){const rect=stage.getBoundingClientRect();stage.style.transformOrigin=outgoing.style.transformOrigin=`${motion.origin.x-rect.left}px ${motion.origin.y-rect.top}px`;}
  const zoom=motion.kind.startsWith('zoom');
  const incoming=zoom?(motion.kind==='zoom-out'?'scale(1.08)':'scale(.9)'):motion.kind==='slide'?`translateX(${(motion.direction||1)*18}%)`:'none';
@@ -386,25 +395,30 @@ function normalizeHierarchy(){
  for(const item of data.items){const seen=new Set([item.id]);let parent=byId.get(item.parentId);while(parent){if(seen.has(parent.id)){item.parentId=null;break;}seen.add(parent.id);parent=byId.get(parent.parentId);}}
 }
 normalizeHierarchy();
-filteredTodos=()=>data.items.filter(item=>item.kind==='todo'&&included(item)&&(data.settings.showCompleted||!item.done)).sort((a,b)=>data.settings.sortPriority?Number(b.priority)-Number(a.priority):0);
+function todoPool(){return data.items.filter(item=>item.kind==='todo'&&included(item)).sort((a,b)=>data.settings.sortPriority?Number(b.priority)-Number(a.priority):0);}
+filteredTodos=()=>todoPool().filter(item=>ui.filter==='Completed'?item.done:ui.filter==='Pending'?!item.done:true);
+function todoFiltersHTML(){return `<nav class="todo-filters" aria-label="任务状态筛选">${[['All','All'],['Pending','未完成'],['Completed','已完成']].map(([value,label])=>`<button data-action="todo-filter" data-todo-filter="${value}" aria-pressed="${ui.filter===value}" class="${ui.filter===value?'active':''}">${label}</button>`).join('')}</nav>`;}
+actions['todo-filter']=element=>{ui.filter=element.dataset.todoFilter;ui.collapsed.clear();render();};
 taskHTML=(item,batch=false)=>{
  const children=data.items.filter(child=>child.parentId===item.id),parent=data.items.find(parent=>parent.id===item.parentId);
- const meta=[item.date?`${Number(item.date.slice(5,7))}/${Number(item.date.slice(8))}${item.time?' '+item.time:''}`:'',children.length?`${children.filter(child=>child.done).length}/${children.length} 子任务`:''].filter(Boolean).join(' · ');
+ const meta=[item.done?'已完成':'',item.date?`${Number(item.date.slice(5,7))}/${Number(item.date.slice(8))}${item.time?' '+item.time:''}`:'',children.length?`${children.filter(child=>child.done).length}/${children.length} 子任务`:''].filter(Boolean).join(' · ');
  const done=batch?ui.selectedIds.has(item.id):item.done;
  return `<article class="task ${item.done?'done':''} ${item.kind==='event'?'event':''} ${ui.selectedIds.has(item.id)?'selected':''}" data-task-id="${esc(item.id)}" style="--task-color:${esc(item.color||'#b89b35')}">${children.length&&!batch?`<button class="task-fold ${foldedTasks.has(item.id)?'folded':''}" data-action="task-collapse" data-id="${esc(item.id)}" aria-label="展开或收起 ${esc(item.title)}" aria-expanded="${!foldedTasks.has(item.id)}">${icon('down')}</button>`:''}<button class="check ${batch?'batch-check':''} ${done?'checked':''}" data-action="${batch?'select':'complete'}" data-id="${esc(item.id)}" aria-label="${batch?'Select ':'Complete '}${esc(item.title)}" aria-pressed="${!!done}"><span>${done?icon('check'):''}</span></button><button class="task-main" data-action="${batch?'select':'edit'}" data-id="${esc(item.id)}"><div class="task-title">${esc(item.title)}</div>${meta?`<div class="task-meta">${esc(meta)}</div>`:''}</button><div class="task-labels">${item.priority?`<span class="flag small-icon">${icon('flag')}</span>`:''}<span class="task-calendar-tag">${esc(item.calendar||'Default')}</span>${parent?`<span class="task-parent-tag">${esc(parent.title)}</span>`:''}</div></article>`;
 };
-function todoTreeHTML(item,depth=0){
- const children=filteredTodos().filter(child=>child.parentId===item.id);
- return `<div class="task-tree" data-tree-id="${esc(item.id)}" style="--depth:${Math.min(depth,3)}">${taskHTML(item,ui.batch)}${!foldedTasks.has(item.id)&&children.length?`<div class="task-children">${children.map(child=>todoTreeHTML(child,depth+1)).join('')}</div>`:''}</div>`;
+function todoTreeHTML(item,depth=0,visible=filteredTodos()){
+ const children=visible.filter(child=>child.parentId===item.id);
+ return `<div class="task-tree" data-tree-id="${esc(item.id)}" style="--depth:${Math.min(depth,3)}">${taskHTML(item,ui.batch)}${!foldedTasks.has(item.id)&&children.length?`<div class="task-children">${children.map(child=>todoTreeHTML(child,depth+1,visible)).join('')}</div>`:''}</div>`;
 }
 todosHTML=()=>{
- const visible=filteredTodos(),ids=new Set(visible.map(item=>item.id));
+ const pool=todoPool(),byId=new Map(pool.map(item=>[item.id,item])),ids=new Set(filteredTodos().map(item=>item.id));
+ for(const id of [...ids]){let parent=byId.get(byId.get(id)?.parentId);while(parent&&!ids.has(parent.id)){ids.add(parent.id);parent=byId.get(parent.parentId);}}
+ const visible=pool.filter(item=>ids.has(item.id));
  const roots=visible.filter(item=>!item.parentId||!ids.has(item.parentId));
  if(!roots.length)return emptyHTML();
- if(!data.settings.grouped)return roots.map(item=>todoTreeHTML(item)).join('');
+ if(!data.settings.grouped)return roots.map(item=>todoTreeHTML(item,0,visible)).join('');
  const groups={Overdue:[],Today:[],Upcoming:[],Unscheduled:[],Done:[]};
  roots.forEach(item=>groups[item.done?'Done':!item.date?'Unscheduled':item.date<today()?'Overdue':item.date===today()?'Today':'Upcoming'].push(item));
- return Object.entries(groups).filter(([,items])=>items.length).map(([label,items])=>`<section class="group"><button class="group-heading ${ui.collapsed.has(label)?'closed':''}" data-action="collapse" data-label="${label}" aria-expanded="${!ui.collapsed.has(label)}"><span>${label}</span><span class="count">${items.length}</span>${icon('down')}</button>${ui.collapsed.has(label)?'':items.map(item=>todoTreeHTML(item)).join('')}</section>`).join('');
+ return Object.entries(groups).filter(([,items])=>items.length).map(([label,items])=>`<section class="group"><button class="group-heading ${ui.collapsed.has(label)?'closed':''}" data-action="collapse" data-label="${label}" aria-expanded="${!ui.collapsed.has(label)}"><span>${label}</span><span class="count">${items.length}</span>${icon('down')}</button>${ui.collapsed.has(label)?'':items.map(item=>todoTreeHTML(item,0,visible)).join('')}</section>`).join('');
 };
 actions['task-collapse']=element=>{const id=element.dataset.id;foldedTasks.has(id)?foldedTasks.delete(id):foldedTasks.add(id);render();};
 const openFlatEditor=openEditor;
@@ -442,12 +456,11 @@ saveDraft=()=>{
  const removed=new Set();for(const id of existingChildren){if(!kept.has(id)){removed.add(id);descendantsOf(id).forEach(childId=>removed.add(childId));}}
  data.items=data.items.filter(item=>!existingChildren.has(item.id)&&!removed.has(item.id));
  for(const child of draftChildren){if(child.title.trim())data.items.push({...child,title:child.title.trim(),parentId:draft.id,calendar:child.calendar||draft.calendar});}
- draft.parentId=draft.parentId||null;saveFlatDraft();
- if(panel)data.items=previous;
+ const previousFilter=ui.filter;ui.filter='All';draft.parentId=draft.parentId||null;saveFlatDraft();
+ if(panel){data.items=previous;ui.filter=previousFilter;}
 };
 actions.save=()=>saveDraft();
-const completeWithMotion=actions.complete;
-actions.complete=element=>{const item=data.items.find(item=>item.id===element.dataset.id);if(item){const children=descendantsOf(item.id);for(const child of data.items){if(children.has(child.id))child.done=!item.done;}}completeWithMotion(element);};
+actions.complete=element=>{const item=data.items.find(item=>item.id===element.dataset.id);if(item){const children=descendantsOf(item.id);for(const child of data.items){if(children.has(child.id))child.done=!item.done;}}completeImmediately(element);};
 const deleteFlatIds=deleteIds;
 deleteIds=ids=>{const all=new Set(ids);ids.forEach(id=>descendantsOf(id).forEach(child=>all.add(child)));deleteFlatIds([...all]);};
 // Preserve parent relations in imported backups after the existing field validation.
