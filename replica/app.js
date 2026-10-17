@@ -61,7 +61,10 @@ const oldScreenOpacity=oldScreen?getComputedStyle(oldScreen).opacity:'1';
 const oldPositions=new Map([...document.querySelectorAll('#app .task')].map(e=>[e.querySelector('[data-id]')?.dataset.id,e.getBoundingClientRect()]));
 const chipScroll=$('.chips')?.scrollLeft||0;
 const wasTab=lastRenderTab;lastRenderTab=ui.tab;
-const items=filteredTodos();$('#app').innerHTML=`<main class="screen">${ui.batch?`<header class="header"><button class="text-button" data-action="batch-cancel">Cancel</button><h1 style="text-align:center;font-size:17px">${ui.selectedIds.size?ui.selectedIds.size+' selected':'Select to-dos'}</h1><button class="text-button" data-action="select-all">${ui.selectedIds.size===items.length&&items.length?'Deselect all':'Select all'}</button></header>${todosHTML()}`:ui.tab==='todos'?`<header class="header"><h1>To-dos <small>${data.items.filter(x=>x.kind==='todo'&&!x.done&&included(x)).length}</small></h1>${btn('more','More options','more')}</header><div class="chips" aria-label="Filter to-dos">${['All','In progress','Overdue','Today','Next 7 days','High priority'].map(x=>`<button class="chip ${ui.filter===x?'active':''}" data-action="filter" data-filter="${x}" aria-pressed="${ui.filter===x}">${x}</button>`).join('')}</div>${todosHTML()}`:calendarHTML()}</main>${ui.batch?batchFooter():dockHTML()}`;renderOverlay();if($('.chips'))$('.chips').scrollLeft=chipScroll;
+const items=filteredTodos();
+const todoHeader=ui.batch?`<header class="header"><button class="text-button" data-action="batch-cancel">Cancel</button><h1 style="text-align:center;font-size:17px">${ui.selectedIds.size?ui.selectedIds.size+' selected':'Select to-dos'}</h1><button class="text-button" data-action="select-all">${ui.selectedIds.size===items.length&&items.length?'Deselect all':'Select all'}</button></header>`:`<header class="header"><h1>To-dos <small>${data.items.filter(x=>x.kind==='todo'&&!x.done&&included(x)).length}</small></h1>${btn('more','More options','more')}</header>`;
+$('#app').innerHTML=`<main class="screen">${ui.batch||ui.tab==='todos'?todoHeader+todosHTML():calendarHTML()}</main>${ui.batch?batchFooter():dockHTML()}`;
+renderOverlay();if($('.chips'))$('.chips').scrollLeft=chipScroll;
 if(oldDock&&!ui.batch){
  const nextDock=$('#app .dock');
  const nextControl=nextDock.querySelector('.round');
@@ -82,8 +85,8 @@ if(entering&&oldScreen){
  oldScreen.getAnimations().forEach(animation=>animation.cancel());
  outgoing.append(oldScreen);$('#app').append(outgoing);
  retireSurface(outgoing,{transform:`translateX(${-direction*16}px)`,opacity:'0'},220);
- const screen=$('#app > .screen');Object.assign(screen.style,{transform:`translateX(${direction*20}px)`,opacity:'.25'});
- settleSurface(screen,{transform:'none',opacity:'1'},260);
+ const screen=$('#app > .screen');Object.assign(screen.style,{transform:`translateX(${direction*10}px)`,opacity:'.35'});
+ settleSurface(screen,{transform:'none',opacity:'1'},200);
 }
 for(const el of document.querySelectorAll('#app .task')){const old=oldPositions.get(el.querySelector('[data-id]')?.dataset.id),now=el.getBoundingClientRect();const delta=old?old.top-now.top:8;if(!entering&&(Math.abs(delta)>1||!old))el.animate([{transform:'translateY('+delta+'px)',opacity:old?1:0},{transform:'translateY(0)',opacity:1}],{duration:240,easing:'cubic-bezier(.2,.8,.2,1)'});}
 }
@@ -133,9 +136,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(modal)modal=null
 async function importBackupFile(file){if(!file)return;try{if(file.size>5*1024*1024)throw Error('too large');const incoming=JSON.parse(await file.text());if(!Array.isArray(incoming.items)||incoming.items.length>10000)throw Error('invalid');const colorPattern=/^#[0-9a-f]{6}$/i;const valid=incoming.items.every(x=>x&&typeof x.title==='string'&&x.title.length<=1000&&['todo','event'].includes(x.kind)&&typeof x.date==='string'&&(!x.date||/^\d{4}-\d{2}-\d{2}$/.test(x.date))&&(!x.color||colorPattern.test(x.color)));if(!valid)throw Error('invalid');const byId=new Map(data.items.map(x=>[x.id,x]));for(const x of incoming.items){const item={id:typeof x.id==='string'?x.id:uid(),kind:x.kind,title:x.title,date:x.date,time:typeof x.time==='string'&&/^\d{2}:\d{2}$/.test(x.time)?x.time:'',endDate:typeof x.endDate==='string'?x.endDate:x.date,endTime:typeof x.endTime==='string'?x.endTime:'',color:x.color||'#b89b35',calendar:defaultSettings.categories.includes(x.calendar)?x.calendar:'Default',category:typeof x.category==='string'?x.category:'Standard event',repeat:['Once','Every day','Every week','Every month','Every year'].includes(x.repeat)?x.repeat:'Once',reminder:typeof x.reminder==='string'?x.reminder:'None',allDay:!!x.allDay,alarm:!!x.alarm,priority:!!x.priority,done:!!x.done,notes:typeof x.notes==='string'?x.notes:'',location:typeof x.location==='string'?x.location:''};byId.set(item.id,item)}data.items=[...byId.values()];persist();render();toast('Imported '+incoming.items.length+' events')}catch{toast('备份格式不正确，请选择此应用导出的 JSON 文件')}finally{$('#import-file').value=''}}
 $('#import-file').addEventListener('change',e=>importBackupFile(e.target.files[0]));
 window.importNativeBackup=text=>importBackupFile(new File([text],'backup.json',{type:'application/json'}));
-let touchStart=null;
-document.addEventListener('touchstart',e=>{if(e.target.closest('#calendar-grid'))touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY}}, {passive:true});
-document.addEventListener('touchend',e=>{if(!touchStart)return;const x=e.changedTouches[0].clientX-touchStart.x,y=e.changedTouches[0].clientY-touchStart.y;touchStart=null;if(Math.abs(x)>70&&Math.abs(x)>Math.abs(y))shiftMonth(x<0?1:-1);else if(Math.abs(y)>50&&Math.abs(y)>Math.abs(x)){ui.expanded=y>0;render()}},{passive:true});
+document.addEventListener('touchstart',onCalendarTouchStart,{passive:false});
+document.addEventListener('touchmove',onCalendarTouchMove,{passive:false});
+document.addEventListener('touchend',onCalendarTouchEnd,{passive:false});
+document.addEventListener('touchcancel',()=>{calendarGesture=null;const stage=$('.calendar-stage');if(stage)settleSurface(stage,{transform:'none',opacity:'1'},180);},{passive:true});
 if(!window.AndroidBridge&&'serviceWorker' in navigator&&(location.protocol==='https:'||['localhost','127.0.0.1'].includes(location.hostname)))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
 
@@ -235,6 +239,231 @@ actions.complete=button=>{
 const filterImmediately=actions.filter;
 actions.filter=button=>{filterImmediately(button);playMotion($('#app .screen'),[{opacity:.4},{opacity:1}],160);};
 const settingsContent=settingsHTML;
-settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.1.2');
+settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.2.0');
+
+// Calendar levels share the same dates and event model, with today independent of selection.
+ui.calendarView='Week';ui.year=Number(ui.month.slice(0,4));
+const HOUR_HEIGHT=44;
+const calendarLevels=['Week','Month','Year'];
+let calendarMotion=null,calendarGesture=null,suppressCalendarClickUntil=0;
+function weekStart(date){return addDays(date,-((parseDate(date).getDay()-data.settings.weekStart+7)%7));}
+function monthDates(month){
+ const first=month+'-01',offset=(parseDate(first).getDay()-data.settings.weekStart+7)%7;
+ return Array.from({length:42},(_,i)=>addDays(first,i-offset));
+}
+function itemLastDate(item){return item.endDate&&item.endDate>=item.date?item.endDate:item.date;}
+eventsForDay=date=>data.items.filter(item=>item.date&&included(item)&&(!item.done||data.settings.showCompleted)&&item.date<=date&&itemLastDate(item)>=date);
+function dayNumber(date,mini=false){return `<span class="${mini?'mini-number':'number'} ${date===today()?'is-today':''}">${Number(date.slice(8))}</span>`;}
+function weekdaysHTML(){return `<div class="weekdays">${Array.from({length:7},(_,i)=>`<span>${['日','一','二','三','四','五','六'][(i+data.settings.weekStart)%7]}</span>`).join('')}</div>`;}
+function miniMonthHTML(month){
+ const first=month+'-01',offset=(parseDate(first).getDay()-data.settings.weekStart+7)%7;
+ const total=new Date(Number(month.slice(0,4)),Number(month.slice(5)),0).getDate();
+ return `<button class="mini-month" data-action="open-month" data-month="${month}" aria-label="${month}"><strong>${Number(month.slice(5))}月</strong><span class="mini-weekdays">${Array.from({length:7},(_,i)=>`<span>${['日','一','二','三','四','五','六'][(i+data.settings.weekStart)%7]}</span>`).join('')}</span><span class="mini-grid">${'<span></span>'.repeat(offset)}${Array.from({length:total},(_,i)=>dayNumber(month+'-'+String(i+1).padStart(2,'0'),true)).join('')}</span></button>`;
+}
+function monthHTML(){
+ return `${weekdaysHTML()}<div class="month-grid" role="grid" aria-label="整月日程">${monthDates(ui.month).map(date=>{
+  const items=eventsForDay(date),overflow=items.length-3;
+  return `<div class="month-cell ${date.startsWith(ui.month)?'':'other-month'}" role="gridcell" data-action="day" data-date="${date}"><button class="month-date" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}<span>${lunarLabel(date)}</span></button><div class="month-items">${items.slice(0,3).map(item=>`<button class="month-event ${item.done?'done':''}" data-action="edit" data-id="${esc(item.id)}" style="--event-color:${esc(item.color||'#b89b35')}" aria-label="${esc(item.title)}" title="${esc(item.title)}">${esc(item.title)}</button>`).join('')}${overflow>0?`<button class="month-more" data-action="day" data-date="${date}">+${overflow} 项</button>`:''}</div></div>`;
+ }).join('')}</div>`;
+}
+function minuteOf(time){if(!/^\d{2}:\d{2}$/.test(time||''))return null;return Number(time.slice(0,2))*60+Number(time.slice(3));}
+function timedSegments(date){
+ const segments=eventsForDay(date).filter(item=>!item.allDay&&minuteOf(item.time)!==null).map(item=>{
+  const start=item.date<date?0:minuteOf(item.time);
+  const end=itemLastDate(item)>date?1440:minuteOf(item.endTime);
+  return {item,start,end:Math.min(1440,Math.max(start+1,end===null?start+(item.kind==='todo'?30:60):end))};
+ }).sort((a,b)=>a.start-b.start||a.end-b.end);
+ let cluster=[],clusterEnd=-1;
+ function layout(){
+  const ends=[];for(const segment of cluster){let lane=ends.findIndex(end=>end<=segment.start);if(lane<0)lane=ends.length;ends[lane]=segment.end;segment.lane=lane;}
+  cluster.forEach(segment=>segment.lanes=ends.length);cluster=[];
+ }
+ for(const segment of segments){if(segment.start>=clusterEnd){layout();clusterEnd=-1;}cluster.push(segment);clusterEnd=Math.max(clusterEnd,segment.end);}layout();
+ return segments;
+}
+function weekHTML(){
+ const dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i));
+ const allDay=eventsForDay(ui.selected).filter(item=>item.allDay||minuteOf(item.time)===null);
+ const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+ const now=Number(parts.find(p=>p.type==='hour').value)*60+Number(parts.find(p=>p.type==='minute').value);
+ return `${weekdaysHTML()}<div class="week-strip" id="calendar-grid">${dates.map(date=>`<button class="day ${date===ui.selected?'selected':''} ${date===today()?'today':''}" data-action="day" data-date="${date}" aria-label="${date}" aria-pressed="${date===ui.selected}">${dayNumber(date)}<span class="lunar">${lunarLabel(date)}</span>${eventsForDay(date).length?'<span class="dot"></span>':'<span class="no-dot"></span>'}</button>`).join('')}</div>${allDay.length?`<div class="all-day-items"><span>全天</span><div>${allDay.map(item=>`<button data-action="edit" data-id="${esc(item.id)}">${esc(item.title)}</button>`).join('')}</div></div>`:''}<div class="daily-timeline" aria-label="${ui.selected} 时间轴"><div class="time-canvas" style="height:${24*HOUR_HEIGHT}px">${Array.from({length:25},(_,hour)=>`<div class="time-tick" style="top:${hour*HOUR_HEIGHT}px"><span>${String(hour).padStart(2,'0')}:00</span><i></i></div>`).join('')}<div class="time-blocks">${timedSegments(ui.selected).map(({item,start,end,lane,lanes})=>`<button class="time-block ${(end-start)<35?'short':''}" data-action="edit" data-id="${esc(item.id)}" style="top:${start/60*HOUR_HEIGHT}px;height:${(end-start)/60*HOUR_HEIGHT}px;left:${lane/lanes*100}%;width:calc(${100/lanes}% - 4px);--event-color:${esc(item.color||'#b89b35')}" aria-label="${esc(item.title)} ${item.time}–${item.endTime||''}"><strong>${esc(item.title)}</strong><small>${item.date<ui.selected?'00:00':esc(item.time)}–${end===1440?'24:00':String(Math.floor(end/60)).padStart(2,'0')+':'+String(end%60).padStart(2,'0')}</small>${item.location?`<span>${esc(item.location)}</span>`:''}</button>`).join('')}</div>${ui.selected===today()?`<div class="now-line" style="top:${now/60*HOUR_HEIGHT}px"><span>${String(Math.floor(now/60)).padStart(2,'0')}:${String(now%60).padStart(2,'0')}</span></div>`:''}</div></div>`;
+}
+calendarHTML=()=>{
+ const title=ui.calendarView==='Year'?`${ui.year}年`:`${Number(ui.month.slice(0,4))}年 ${Number(ui.month.slice(5))}月`;
+ const body=ui.calendarView==='Year'?`<div class="year-grid">${Array.from({length:12},(_,i)=>miniMonthHTML(ui.year+'-'+String(i+1).padStart(2,'0'))).join('')}</div>`:ui.calendarView==='Month'?monthHTML():weekHTML();
+ return `<header class="header calendar-head"><div class="month-controls">${btn('month-prev',ui.calendarView==='Week'?'上一周':ui.calendarView==='Year'?'上一年':'上个月','back','','icon-button prev-month')}<button class="month-title" data-action="calendar-level">${title}<small>${ui.calendarView==='Week'?'第 '+weekNumber(ui.selected)+' 周':ui.calendarView==='Month'?'月视图':'年视图'}</small></button>${btn('month-next',ui.calendarView==='Week'?'下一周':ui.calendarView==='Year'?'下一年':'下个月','next','','icon-button next-month')}</div>${btn('more','More options','more')}</header><div class="calendar-viewport"><section class="calendar-stage" data-level="${ui.calendarView}">${body}</section></div><button class="today-button round" data-action="go-today" aria-label="回到今天">${icon('calendar')}<span>${Number(today().slice(8))}</span></button>`;
+};
+function switchCalendarLevel(level,origin){
+ const current=calendarLevels.indexOf(ui.calendarView),next=calendarLevels.indexOf(level);if(next<0)return;if(next===current){menu=null;renderOverlay();return;}
+ calendarMotion={kind:next>current?'zoom-out':'zoom-in',origin};ui.calendarView=level;ui.year=Number(ui.month.slice(0,4));menu=null;render();
+}
+function shiftCalendarPeriod(delta){
+ calendarMotion={kind:'slide',direction:delta};
+ if(ui.calendarView==='Week'){ui.selected=addDays(ui.selected,delta*7);ui.month=ui.selected.slice(0,7);}
+ else if(ui.calendarView==='Year'){ui.year+=delta;ui.month=ui.year+ui.month.slice(4);}
+ else{const date=parseDate(ui.month+'-01');date.setMonth(date.getMonth()+delta);ui.month=dateString(date).slice(0,7);}
+ render();
+}
+actions['month-prev']=()=>shiftCalendarPeriod(-1);
+actions['month-next']=()=>shiftCalendarPeriod(1);
+shiftMonth=shiftCalendarPeriod;
+actions['calendar-view']=element=>switchCalendarLevel(({Timeline:'Week','Week view':'Week',Overview:'Month',List:'Month','Events view':'Month'})[element.dataset.view]||element.dataset.view);
+actions['calendar-level']=()=>switchCalendarLevel(calendarLevels[Math.min(2,calendarLevels.indexOf(ui.calendarView)+1)]);
+actions['expand-calendar']=actions['calendar-level'];
+actions['open-month']=element=>{ui.month=element.dataset.month;switchCalendarLevel('Month');};
+actions['day']=element=>{
+ const date=element.dataset.date;if(!date)return;
+ ui.selected=date;ui.month=date.slice(0,7);
+ if(ui.calendarView==='Month')switchCalendarLevel('Week');else{calendarMotion={kind:'day'};render();}
+};
+actions['go-today']=()=>{ui.selected=today();ui.month=today().slice(0,7);ui.year=Number(ui.month.slice(0,4));calendarMotion={kind:'day'};render();};
+const overlayWithCalendarMenu=renderOverlay;
+renderOverlay=function(){
+ overlayWithCalendarMenu();
+ if(menu==='view'&&ui.tab==='calendar'){
+  const surface=$('#overlay > .menu');if(surface)surface.innerHTML=calendarLevels.map((level,i)=>menuItem('calendar-view',['周视图','月视图','年视图'][i],['timeline','grid','calendar'][i],`data-view="${level}"`,ui.calendarView===level)).join('');
+ }
+};
+const renderPlannerContent=render;
+render=function(){
+ const oldStage=$('#app > .screen .calendar-stage');
+ const oldTimeline=oldStage?.querySelector('.daily-timeline'),oldScroll=oldTimeline?.scrollTop;
+ const motion=calendarMotion;calendarMotion=null;
+ renderPlannerContent();
+ const stage=$('#app > .screen .calendar-stage');if(!stage)return;
+ const timeline=stage.querySelector('.daily-timeline');
+ if(timeline)timeline.scrollTop=oldScroll!==undefined?oldScroll:8*HOUR_HEIGHT;
+ if(!oldStage||!motion||motionReduced())return;
+ const outgoing=document.createElement('div');outgoing.className='calendar-outgoing';outgoing.inert=true;outgoing.setAttribute('aria-hidden','true');
+ oldStage.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));outgoing.append(oldStage);stage.parentNode.append(outgoing);
+ if(oldTimeline)oldTimeline.scrollTop=oldScroll;
+ if(motion.origin){const rect=stage.getBoundingClientRect();stage.style.transformOrigin=outgoing.style.transformOrigin=`${motion.origin.x-rect.left}px ${motion.origin.y-rect.top}px`;}
+ const zoom=motion.kind.startsWith('zoom');
+ const incoming=zoom?(motion.kind==='zoom-out'?'scale(1.08)':'scale(.9)'):motion.kind==='slide'?`translateX(${(motion.direction||1)*18}%)`:'none';
+ const leaving=zoom?(motion.kind==='zoom-out'?'scale(.88)':'scale(1.08)'):motion.kind==='slide'?`translateX(${-(motion.direction||1)*18}%)`:'none';
+ Object.assign(stage.style,{transform:incoming,opacity:'.25'});
+ settleSurface(stage,{transform:'none',opacity:'1'},240);
+ retireSurface(outgoing,{transform:leaving,opacity:'0'},220);
+};
+function onCalendarTouchStart(event){
+ if(panel||menu||modal||ui.tab!=='calendar'||!event.target.closest('.calendar-stage'))return;
+ if(event.touches.length===2){
+  const [a,b]=event.touches;event.preventDefault();
+  calendarGesture={pinch:true,distance:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),origin:{x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2},used:false};
+ }else if(event.touches.length===1)calendarGesture={pinch:false,x:event.touches[0].clientX,y:event.touches[0].clientY,dx:0,dy:0};
+}
+function onCalendarTouchMove(event){
+ const gesture=calendarGesture;if(!gesture)return;
+ if(gesture.pinch){
+  if(event.touches.length!==2)return;event.preventDefault();if(gesture.used)return;
+  const [a,b]=event.touches,ratio=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)/gesture.distance;
+  if(ratio<.78||ratio>1.28){const index=calendarLevels.indexOf(ui.calendarView),next=Math.max(0,Math.min(2,index+(ratio<1?1:-1)));gesture.used=true;suppressCalendarClickUntil=performance.now()+400;switchCalendarLevel(calendarLevels[next],gesture.origin);}
+ }else if(event.touches.length===1){
+  gesture.dx=event.touches[0].clientX-gesture.x;gesture.dy=event.touches[0].clientY-gesture.y;
+  if(Math.abs(gesture.dx)>14&&Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.3){event.preventDefault();const stage=$('.calendar-stage');if(stage){stage.style.transform=`translateX(${Math.max(-60,Math.min(60,gesture.dx*.4))}px)`;}}
+ }
+}
+function onCalendarTouchEnd(event){
+ const gesture=calendarGesture;if(!gesture)return;
+ if(gesture.pinch){if(event.touches.length===0)calendarGesture=null;return;}
+ calendarGesture=null;
+ if(Math.abs(gesture.dx)>48&&Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.3){suppressCalendarClickUntil=performance.now()+400;shiftCalendarPeriod(gesture.dx<0?1:-1);}
+ else{const stage=$('.calendar-stage');if(stage)settleSurface(stage,{transform:'none',opacity:'1'},180);}
+}
+document.addEventListener('pointerdown',()=>{suppressCalendarClickUntil=0;},true);
+document.addEventListener('click',event=>{if(performance.now()<suppressCalendarClickUntil&&event.target.closest('.calendar-stage')){event.preventDefault();event.stopImmediatePropagation();}},true);
+
+// Flat persisted records retain compatibility with reminders and backups; parentId adds hierarchy.
+const foldedTasks=new Set();
+let draftChildren=[];
+function descendantsOf(id){const result=new Set(),pending=[id];while(pending.length){const parent=pending.pop();for(const item of data.items){if(item.parentId===parent&&!result.has(item.id)&&item.id!==id){result.add(item.id);pending.push(item.id);}}}return result;}
+function normalizeHierarchy(){
+ const byId=new Map(data.items.map(item=>[item.id,item]));
+ for(const item of data.items){
+  if(item.kind!=='todo'){delete item.parentId;continue;}
+  if(typeof item.parentId!=='string'||!byId.has(item.parentId)||byId.get(item.parentId).kind!=='todo'||item.parentId===item.id)item.parentId=null;
+ }
+ for(const item of data.items){const seen=new Set([item.id]);let parent=byId.get(item.parentId);while(parent){if(seen.has(parent.id)){item.parentId=null;break;}seen.add(parent.id);parent=byId.get(parent.parentId);}}
+}
+normalizeHierarchy();
+filteredTodos=()=>data.items.filter(item=>item.kind==='todo'&&included(item)&&(data.settings.showCompleted||!item.done)).sort((a,b)=>data.settings.sortPriority?Number(b.priority)-Number(a.priority):0);
+taskHTML=(item,batch=false)=>{
+ const children=data.items.filter(child=>child.parentId===item.id),parent=data.items.find(parent=>parent.id===item.parentId);
+ const meta=[item.date?`${Number(item.date.slice(5,7))}/${Number(item.date.slice(8))}${item.time?' '+item.time:''}`:'',children.length?`${children.filter(child=>child.done).length}/${children.length} 子任务`:''].filter(Boolean).join(' · ');
+ const done=batch?ui.selectedIds.has(item.id):item.done;
+ return `<article class="task ${item.done?'done':''} ${item.kind==='event'?'event':''} ${ui.selectedIds.has(item.id)?'selected':''}" data-task-id="${esc(item.id)}" style="--task-color:${esc(item.color||'#b89b35')}">${children.length&&!batch?`<button class="task-fold ${foldedTasks.has(item.id)?'folded':''}" data-action="task-collapse" data-id="${esc(item.id)}" aria-label="展开或收起 ${esc(item.title)}" aria-expanded="${!foldedTasks.has(item.id)}">${icon('down')}</button>`:''}<button class="check ${batch?'batch-check':''} ${done?'checked':''}" data-action="${batch?'select':'complete'}" data-id="${esc(item.id)}" aria-label="${batch?'Select ':'Complete '}${esc(item.title)}" aria-pressed="${!!done}"><span>${done?icon('check'):''}</span></button><button class="task-main" data-action="${batch?'select':'edit'}" data-id="${esc(item.id)}"><div class="task-title">${esc(item.title)}</div>${meta?`<div class="task-meta">${esc(meta)}</div>`:''}</button><div class="task-labels">${item.priority?`<span class="flag small-icon">${icon('flag')}</span>`:''}<span class="task-calendar-tag">${esc(item.calendar||'Default')}</span>${parent?`<span class="task-parent-tag">${esc(parent.title)}</span>`:''}</div></article>`;
+};
+function todoTreeHTML(item,depth=0){
+ const children=filteredTodos().filter(child=>child.parentId===item.id);
+ return `<div class="task-tree" data-tree-id="${esc(item.id)}" style="--depth:${Math.min(depth,3)}">${taskHTML(item,ui.batch)}${!foldedTasks.has(item.id)&&children.length?`<div class="task-children">${children.map(child=>todoTreeHTML(child,depth+1)).join('')}</div>`:''}</div>`;
+}
+todosHTML=()=>{
+ const visible=filteredTodos(),ids=new Set(visible.map(item=>item.id));
+ const roots=visible.filter(item=>!item.parentId||!ids.has(item.parentId));
+ if(!roots.length)return emptyHTML();
+ if(!data.settings.grouped)return roots.map(item=>todoTreeHTML(item)).join('');
+ const groups={Overdue:[],Today:[],Upcoming:[],Unscheduled:[],Done:[]};
+ roots.forEach(item=>groups[item.done?'Done':!item.date?'Unscheduled':item.date<today()?'Overdue':item.date===today()?'Today':'Upcoming'].push(item));
+ return Object.entries(groups).filter(([,items])=>items.length).map(([label,items])=>`<section class="group"><button class="group-heading ${ui.collapsed.has(label)?'closed':''}" data-action="collapse" data-label="${label}" aria-expanded="${!ui.collapsed.has(label)}"><span>${label}</span><span class="count">${items.length}</span>${icon('down')}</button>${ui.collapsed.has(label)?'':items.map(item=>todoTreeHTML(item)).join('')}</section>`).join('');
+};
+actions['task-collapse']=element=>{const id=element.dataset.id;foldedTasks.has(id)?foldedTasks.delete(id):foldedTasks.add(id);render();};
+const openFlatEditor=openEditor;
+openEditor=id=>{
+ draftChildren=id?data.items.filter(item=>item.kind==='todo'&&item.parentId===id).map(item=>({...item})):[];
+ openFlatEditor(id);draft.parentId=draft.parentId||null;
+};
+const flatEditorHTML=editorHTML;
+editorHTML=()=>{
+ let html=flatEditorHTML();if(draft.kind!=='todo')return html;
+ const excluded=descendantsOf(draft.id);excluded.add(draft.id);
+ const parents=data.items.filter(item=>item.kind==='todo'&&!excluded.has(item.id));
+ const parentControl=`<div class="edit-card"><label class="row"><span class="label">所属大任务</span><select data-draft="parentId" aria-label="所属大任务"><option value="">独立任务</option>${parents.map(item=>`<option value="${esc(item.id)}" ${draft.parentId===item.id?'selected':''}>${esc(item.title)}</option>`).join('')}</select>${icon('down','chevron')}</label></div>`;
+ const subtaskSection=`<div class="subtask-editor edit-card"><div class="subtask-heading"><strong>子任务</strong><span>${draftChildren.filter(item=>item.done).length}/${draftChildren.length}</span></div>${draftChildren.map(item=>`<div class="subtask-edit-row"><input class="subtask-check" type="checkbox" data-child-done="${esc(item.id)}" ${item.done?'checked':''} aria-label="完成子任务 ${esc(item.title)}"><input type="text" data-child-title="${esc(item.id)}" value="${esc(item.title)}" placeholder="子任务名称" aria-label="子任务名称"><button class="child-date" data-action="child-date" data-id="${esc(item.id)}" aria-label="子任务时间">${item.date?esc(item.date.slice(5)):'日期'}</button><button class="icon-button" data-action="child-remove" data-id="${esc(item.id)}" aria-label="移除子任务">${icon('close')}</button></div>`).join('')}<button class="text-button add-subtask" data-action="child-add">${icon('plus')} 添加子任务</button></div>`;
+ html=html.replace('<div class="more-label">More settings</div>',parentControl+subtaskSection+'<div class="more-label">More settings</div>');
+ return html;
+};
+actions['child-add']=()=>{draftChildren.push({id:uid(),kind:'todo',title:'',date:'',time:'',parentId:draft.id,calendar:draft.calendar,color:draft.color,done:false,reminder:'None',repeat:'Once'});renderOverlay();const fields=document.querySelectorAll('[data-child-title]');fields[fields.length-1]?.focus({preventScroll:true});};
+actions['child-remove']=element=>{draftChildren=draftChildren.filter(item=>item.id!==element.dataset.id);renderOverlay();};
+actions['child-date']=element=>{
+ const child=draftChildren.find(item=>item.id===element.dataset.id);if(!child)return;
+ showDialog('子任务时间',`<label>日期<input id="child-date" type="date" value="${esc(child.date||today())}"></label><label>时间<input id="child-time" type="time" value="${esc(child.time||'08:30')}"></label>`,()=>{child.date=$('#child-date').value;child.time=$('#child-time').value;return true;});
+};
+document.addEventListener('input',event=>{const id=event.target.dataset.childTitle;if(id){const child=draftChildren.find(item=>item.id===id);if(child)child.title=event.target.value;}});
+document.addEventListener('change',event=>{const id=event.target.dataset.childDone;if(id){const child=draftChildren.find(item=>item.id===id);if(child)child.done=event.target.checked;}});
+const saveFlatDraft=saveDraft;
+saveDraft=()=>{
+ if(draft.kind!=='todo'){saveFlatDraft();return;}
+ if(!draft.title.trim())return;
+ const invalidParent=draft.parentId&&(draft.parentId===draft.id||descendantsOf(draft.id).has(draft.parentId));
+ if(invalidParent){$('#form-error').textContent='不能将任务放到自己或自己的子任务下';return;}
+ const previous=data.items;
+ const existingChildren=new Set(data.items.filter(item=>item.parentId===draft.id).map(item=>item.id));
+ const kept=new Set(draftChildren.filter(item=>item.title.trim()).map(item=>item.id));
+ const removed=new Set();for(const id of existingChildren){if(!kept.has(id)){removed.add(id);descendantsOf(id).forEach(childId=>removed.add(childId));}}
+ data.items=data.items.filter(item=>!existingChildren.has(item.id)&&!removed.has(item.id));
+ for(const child of draftChildren){if(child.title.trim())data.items.push({...child,title:child.title.trim(),parentId:draft.id,calendar:child.calendar||draft.calendar});}
+ draft.parentId=draft.parentId||null;saveFlatDraft();
+ if(panel)data.items=previous;
+};
+actions.save=()=>saveDraft();
+const completeWithMotion=actions.complete;
+actions.complete=element=>{const item=data.items.find(item=>item.id===element.dataset.id);if(item){const children=descendantsOf(item.id);for(const child of data.items){if(children.has(child.id))child.done=!item.done;}}completeWithMotion(element);};
+const deleteFlatIds=deleteIds;
+deleteIds=ids=>{const all=new Set(ids);ids.forEach(id=>descendantsOf(id).forEach(child=>all.add(child)));deleteFlatIds([...all]);};
+// Preserve parent relations in imported backups after the existing field validation.
+const importFlatBackup=importBackupFile;
+importBackupFile=async file=>{
+ if(!file||file.size>5*1024*1024){await importFlatBackup(file);return;}
+ let incoming;try{incoming=JSON.parse(await file.text());}catch{await importFlatBackup(file);return;}
+ const safe=Array.isArray(incoming.items)&&incoming.items.length<=10000&&incoming.items.every(item=>item&&typeof item.title==='string'&&item.title.length<=1000&&['todo','event'].includes(item.kind)&&typeof item.date==='string'&&(!item.date||/^\d{4}-\d{2}-\d{2}$/.test(item.date))&&(!item.color||/^#[0-9a-f]{6}$/i.test(item.color)));
+ if(!safe){await importFlatBackup(file);return;}
+ const beforeIds=new Set(data.items.map(item=>item.id));
+ await importFlatBackup(file);
+ if(Array.isArray(incoming.items)){
+  const records=new Map(incoming.items.filter(item=>item&&typeof item.id==='string').map(item=>[item.id,item]));
+  for(const item of data.items){const record=records.get(item.id);if(record&&(!beforeIds.has(item.id)||item.title===record.title))item.parentId=typeof record.parentId==='string'?record.parentId:null;}
+  normalizeHierarchy();persist();render();
+ }
+};
 initializeNative();
 render();
