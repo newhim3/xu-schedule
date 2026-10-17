@@ -321,7 +321,7 @@ actions['day']=element=>{
  ui.selected=date;ui.month=date.slice(0,7);
  if(ui.calendarView==='Month')switchCalendarLevel('Week');else{calendarMotion={kind:'day'};render();}
 };
-actions['go-today']=()=>{ui.selected=today();ui.month=today().slice(0,7);ui.year=Number(ui.month.slice(0,4));calendarMotion={kind:'day'};render();};
+actions['go-today']=()=>{ui.selected=today();ui.month=today().slice(0,7);ui.year=Number(ui.month.slice(0,4));calendarMotion={kind:'day',resetMonthScroll:true};render();};
 const overlayWithCalendarMenu=renderOverlay;
 renderOverlay=function(){
  overlayWithCalendarMenu();
@@ -340,7 +340,7 @@ render=function(){
  const stage=$('#app > .screen .calendar-stage');if(!stage)return;
  const timeline=stage.querySelector('.daily-timeline');
  if(timeline)timeline.scrollTop=oldScroll!==undefined?oldScroll:8*HOUR_HEIGHT;
- const months=stage.querySelector('.month-scroll');if(months)months.scrollTop=oldMonth===ui.month?oldMonthScroll||0:0;
+ const months=stage.querySelector('.month-scroll');if(months)months.scrollTop=!motion?.resetMonthScroll&&oldMonth===ui.month?oldMonthScroll||0:0;
  if(!oldStage||!motion||motionReduced())return;
  const outgoing=document.createElement('div');outgoing.className='calendar-outgoing';outgoing.inert=true;outgoing.setAttribute('aria-hidden','true');
  oldStage.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));outgoing.append(oldStage);stage.parentNode.append(outgoing);

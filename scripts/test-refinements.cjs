@@ -50,6 +50,8 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   await page.locator('.month-scroll').evaluate(element=>element.scrollTop=100);const monthScroll=await page.locator('.month-scroll').evaluate(element=>element.scrollTop);
   await page.locator('.month-event[data-id="parent"]').click();await page.waitForTimeout(280);await page.locator('[data-action="close-panel"]').click();await page.waitForTimeout(280);
   assert.equal(await page.locator('.month-scroll').evaluate(element=>element.scrollTop),monthScroll,'Closing editor preserves monthly scroll position');
+  await page.locator('.month-scroll').evaluate(element=>element.scrollTop=400);await page.locator('[data-action="go-today"]').click();await page.waitForTimeout(280);
+  assert.equal(await page.locator('.month-scroll').evaluate(element=>element.scrollTop),0,'Today button must return from the next month to the current month');
   await page.locator('.month-date[data-date="2026-11-02"]').click();await page.waitForTimeout(280);
   assert.equal(await page.locator('.calendar-stage').getAttribute('data-level'),'Week','Continuous month dates still enter the correct week');
   assert.equal(await page.locator('.daily-timeline').getAttribute('aria-label'),'2026-11-02 时间轴');
