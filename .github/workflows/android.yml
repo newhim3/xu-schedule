@@ -28,6 +28,7 @@ jobs:
       - run: node --check replica/focus-core.js && node --check replica/focus.js
       - run: node scripts/test-goal-core.cjs
       - run: node scripts/test-focus-core.cjs && node scripts/test-web-assets.cjs
+      - run: node scripts/test-heatmap-core.cjs
       - run: gradle -p android-webview --no-daemon assembleDebug assembleRelease testDebugUnitTest lintDebug
       - uses: actions/upload-artifact@v4
         if: always()
@@ -48,6 +49,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-focus-ui.cjs
       - run: node scripts/test-choices-ui.cjs
+      - run: node scripts/test-heatmap-ui.cjs
+      - run: node scripts/test-card-density.cjs
       - run: node scripts/test-goal-ui.cjs
       - run: node scripts/test-planner.cjs
       - run: node scripts/test-refinements.cjs

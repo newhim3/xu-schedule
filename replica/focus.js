@@ -2,6 +2,7 @@
 (()=>{
  const t=(zh,en)=>data.settings.language==='en'?en:zh;
  const themes={lake:['雾湖','Misty lake'],dunes:['沙丘','Quiet dunes'],water:['静水','Still water']};
+ const cardDensities={compact:['紧凑','Compact'],standard:['适中','Standard'],relaxed:['宽松','Roomy']};
  function goalPath(goal,includeSelf=true){const parts=[],seen=new Set();let current=includeSelf?goal:data.items.find(item=>item.id===goal?.parentId);while(current&&!seen.has(current.id)){seen.add(current.id);parts.unshift(current.title);current=data.items.find(item=>item.id===current.parentId);}return parts.join(' › ');}
  data.focusSessions=Array.isArray(data.focusSessions)?data.focusSessions:[];
  data.settings.calendarBackground=Object.hasOwn(themes,data.settings.calendarBackground)?data.settings.calendarBackground:'lake';
@@ -18,6 +19,9 @@
    if(item.showRemarks===false)template.content.querySelector('.goal-note')?.remove();
    if(item.parentId)template.content.querySelector('.task-title')?.insertAdjacentHTML('afterend',`<div class="goal-origin">${esc(goalPath(item,false))}</div>`);
    template.content.querySelector('.task-meta')?.insertAdjacentHTML('beforebegin',deadlineHTML(item));
+   const main=template.content.querySelector('.task-main'),details=document.createElement('div');details.className='goal-details';
+   for(const selector of ['.goal-origin','.task-meta','.task-deadline']){const field=main.querySelector(selector);if(field)details.append(field);}
+   main.querySelector('.task-title').after(details);const note=main.querySelector('.goal-note');if(note)main.append(note);
   }
   return template.innerHTML;
  };
@@ -35,9 +39,25 @@
  const ordinaryCalendar=calendarHTML;
  calendarHTML=()=>{
   if(ui.tab==='focus')return focusHTML();const html=ordinaryCalendar();
-  if(ui.tab!=='calendar'||ui.calendarView!=='Timetable')return html;
-  const template=document.createElement('template');template.innerHTML=html;template.content.querySelector('.calendar-stage').innerHTML=timetableHTML();return template.innerHTML;
+  if(ui.tab!=='calendar'||!['Timetable','Month','Year'].includes(ui.calendarView))return html;
+  const template=document.createElement('template');template.innerHTML=html;
+  if(ui.calendarView==='Timetable')template.content.querySelector('.calendar-stage').innerHTML=timetableHTML();
+  else addCalendarHeat(template.content);return template.innerHTML;
  };
+ function heatLevel(minutes){return !minutes?0:minutes<60?1:minutes<120?2:minutes<180?3:minutes<240?4:5;}
+ function addCalendarHeat(content){
+  const totals=FocusCore.dailyActual(data.items,data.focusSessions,Date.now()),year=ui.calendarView==='Year';
+  const legend=`<div class="heat-legend"><span>${t('少','Less')}</span><span class="heat-scale" aria-hidden="true">${Array.from({length:6},(_,level)=>`<i data-heat="${level}"></i>`).join('')}</span><span>${t('多','More')}</span><small>${t('实际专注时长 · 不含暂停','Actual focus · pauses excluded')}</small></div>`;
+  if(year){
+   for(const month of content.querySelectorAll('.mini-month')){
+    const key=month.dataset.month;month.classList.add('has-heat');
+    for(const number of month.querySelectorAll('.mini-number')){const date=key+'-'+number.textContent.padStart(2,'0'),minutes=totals[date]||0;number.dataset.date=date;number.dataset.heat=heatLevel(minutes);}
+   }
+  }else for(const cell of content.querySelectorAll('.month-cell')){
+   const minutes=totals[cell.dataset.date]||0,button=cell.querySelector('.month-date');cell.dataset.heat=heatLevel(minutes);button.classList.add('has-heat');button.dataset.heat=heatLevel(minutes);
+  }
+  (content.querySelector('.month-scroll')||content.querySelector('.calendar-stage')).insertAdjacentHTML('beforeend',legend);
+ }
  function timetableHTML(){
   const dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i));
   return `${weekdaysHTML()}<div class="week-strip timetable-strip">${dates.map(date=>`<button class="day ${date===today()?'today':''}" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}</button>`).join('')}</div><div class="timetable-scroll"><div class="timetable-canvas" style="height:${24*HOUR_HEIGHT}px"><div class="timetable-axis">${Array.from({length:25},(_,hour)=>`<span style="top:${hour*HOUR_HEIGHT}px">${String(hour).padStart(2,'0')}:00</span>`).join('')}</div>${dates.map(date=>{
@@ -175,12 +195,14 @@
  const editCalendarItem=actions.edit;actions.edit=element=>{const item=data.items.find(record=>record.id===element.dataset.id);if(item?.focusActual){showDialog(t('实际专注记录','Actual focus'),`<p>${esc(item.title)}</p><p class="note">${esc(item.date)} ${esc(item.time)}–${esc(item.endTime)}<br>${timerText(item.actualEndAt-item.actualStartAt)} · ${t('已计入目标投入；暂停时间已排除','Credited to goal; paused time excluded')}</p>`,()=>true,t('知道了','OK'));}else editCalendarItem(element);};
  const previousSettings=settingsHTML;
  settingsHTML=()=>{
-  const html=previousSettings().replaceAll('1.3.0','1.4.0');if(panel.sub!=='root')return html;
-  return html.replace('<div class="section-caption">',`<div class="background-choices"><div class="field-caption">${t('日历背景 · 日 / 周 / 月通用','Calendar background · all views')}</div><div>${Object.entries(themes).map(([key,label])=>`<button data-action="background-pick" data-theme="${key}" aria-pressed="${data.settings.calendarBackground===key}"><img src="background-${key}.jpg" alt="" loading="lazy"><span>${t(...label)}</span></button>`).join('')}</div><p class="background-credit">${t('自然摄影来自 Unsplash，已随应用离线打包','Nature photography from Unsplash; available offline')}</p></div><div class="section-caption">`).replace(t('月视图玻璃背景','Glass calendar background'),t('日历透明背景','Glass calendar background'));
+  const html=previousSettings().replaceAll('1.3.0','1.5.0');if(panel.sub!=='root')return html;
+  const density=`<div class="setting-card"><label class="row"><span class="label">${t('目标卡片疏密','Goal card density')}<small>${t('调整卡片高度，字号保持不变','Adjust card height without changing text size')}</small></span><select id="card-density" aria-label="${t('目标卡片疏密','Goal card density')}">${Object.entries(cardDensities).map(([key,label])=>`<option value="${key}" ${key===(data.settings.cardDensity||'compact')?'selected':''}>${t(...label)}</option>`).join('')}</select></label></div>`;
+  return html.replace('<div class="section-caption">',density+`<div class="background-choices"><div class="field-caption">${t('日历背景 · 日 / 周 / 月通用','Calendar background · all views')}</div><div>${Object.entries(themes).map(([key,label])=>`<button data-action="background-pick" data-theme="${key}" aria-pressed="${data.settings.calendarBackground===key}"><img src="background-${key}.jpg" alt="" loading="lazy"><span>${t(...label)}</span></button>`).join('')}</div><p class="background-credit">${t('自然摄影来自 Unsplash，已随应用离线打包','Nature photography from Unsplash; available offline')}</p></div><div class="section-caption">`).replace(t('月视图玻璃背景','Glass calendar background'),t('日历透明背景','Glass calendar background'));
  };
+ document.addEventListener('change',event=>{if(event.target.id==='card-density'&&Object.hasOwn(cardDensities,event.target.value)){data.settings.cardDensity=event.target.value;persist();render();}});
  actions['background-pick']=element=>{if(Object.hasOwn(themes,element.dataset.theme)){data.settings.calendarBackground=element.dataset.theme;persist();render();}};
  const repaint=render;
- render=function(){const oldWeekly=document.querySelector('#app > .screen .timetable-scroll'),weeklyScroll=oldWeekly?.scrollTop;repaint();const weekly=document.querySelector('#app > .screen .timetable-scroll');if(weekly)weekly.scrollTop=weeklyScroll??8*HOUR_HEIGHT;const screen=document.querySelector('#app > .screen');if(screen){screen.dataset.background=data.settings.calendarBackground;if(ui.tab==='todos')screen.classList.add('task-list-screen');}const goal=data.items.find(item=>item.id===(currentFocus()?.goalId||selectedFocus().goal?.id));if(goal?.parentId)document.querySelector('.focus-timer h2')?.insertAdjacentHTML('afterend',`<p class="focus-origin">${esc(goalPath(goal))}</p>`);enhanceChoices();};
+ render=function(){document.documentElement.dataset.cardDensity=Object.hasOwn(cardDensities,data.settings.cardDensity)?data.settings.cardDensity:'compact';const oldWeekly=document.querySelector('#app > .screen .timetable-scroll'),weeklyScroll=oldWeekly?.scrollTop;repaint();const weekly=document.querySelector('#app > .screen .timetable-scroll');if(weekly)weekly.scrollTop=weeklyScroll??8*HOUR_HEIGHT;const screen=document.querySelector('#app > .screen');if(screen){screen.dataset.background=data.settings.calendarBackground;if(ui.tab==='todos')screen.classList.add('task-list-screen');}const goal=data.items.find(item=>item.id===(currentFocus()?.goalId||selectedFocus().goal?.id));if(goal?.parentId)document.querySelector('.focus-timer h2')?.insertAdjacentHTML('afterend',`<p class="focus-origin">${esc(goalPath(goal))}</p>`);enhanceChoices();};
  // Native <dialog> supplies focus containment, Escape behavior and top-layer stacking.
  // Every select keeps its original value/change contract; only its presentation changes.
  let choiceState=null;

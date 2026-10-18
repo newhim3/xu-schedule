@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict');
+const F=require('../replica/focus-core.js');
+const at=(date,time)=>F.stamp(date,time);
+assert.equal(typeof F.dailyActual,'function','Heatmaps need actual daily focus totals, not planned time');
+const session=F.finish(F.start({id:'night',goalId:'a'},at('2026-10-17','23:30')),at('2026-10-18','00:30'));
+const items=F.project([{id:'plan',kind:'event',taskBlock:true,done:true,date:'2026-10-18',time:'08:00',endTime:'10:00'}],session);
+assert.deepEqual(F.dailyActual(items,[session],at('2026-10-18','12:00')),{'2026-10-17':30,'2026-10-18':30},'Split across local midnight; projected records must not double count sessions or count planned time');
+assert.deepEqual(F.dailyActual(items,[],at('2026-10-18','12:00')),{'2026-10-17':30,'2026-10-18':30},'Historical actual records work without session metadata');
+let active=F.start({id:'live',goalId:'a'},at('2026-10-18','09:00'));
+active=F.resume(F.pause(active,at('2026-10-18','09:10')),at('2026-10-18','09:30'));
+assert.equal(F.dailyActual([], [active],at('2026-10-18','09:40'))['2026-10-18'],20,'Running sessions count elapsed time but not pauses');
+const overlap=F.finish(F.start({id:'overlap',goalId:'b'},at('2026-10-18','09:35')),at('2026-10-18','10:00'));
+assert.equal(F.dailyActual([], [active,overlap],at('2026-10-18','09:40'))['2026-10-18'],20,'Imported overlaps are a union and future intervals are clipped to now');
+const planned={id:'p',kind:'event',date:'2026-10-18',time:'09:00',endTime:'10:00'};
+const gated=F.start({id:'gated',goalId:'a',plan:planned},at('2026-10-18','09:50'));
+assert.equal(F.dailyActual([], [gated],at('2026-10-18','10:30'))['2026-10-18'],10,'A delayed callback cannot credit past the planned deadline');
+assert.deepEqual(F.dailyActual([],[],Date.now()),{});
+console.log('PASS actual focus heatmap: midnight, pauses, live sessions, deadline, overlap union, projection deduplication');

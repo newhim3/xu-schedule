@@ -52,6 +52,21 @@ const FocusCore={
   }
   return total/60000;
  },
+ dailyActual(items,sessions,now){
+  const intervals=[],known=new Set();
+  const add=(start,end)=>{end=Math.min(end,now);if(Number.isFinite(start)&&Number.isFinite(end)&&end>start)intervals.push([start,end]);};
+  for(const session of sessions){
+   if(!this.validate(session))continue;known.add(session.id);
+   const snapshot=this.reconcile(session,now);
+   for(const part of snapshot.segments)add(part.start,part.end??now);
+  }
+  for(const item of items)if(item.focusActual&&!known.has(item.focusId))add(item.actualStartAt,item.actualEndAt);
+  intervals.sort((a,b)=>a[0]-b[0]);const merged=[];
+  for(const [start,end] of intervals){const previous=merged.at(-1);if(previous&&start<=previous[1])previous[1]=Math.max(previous[1],end);else merged.push([start,end]);}
+  const totals={};
+  for(const [start,end] of merged){let cursor=start;while(cursor<end){const date=this.parts(cursor).date,stop=Math.min(end,this.stamp(date,'00:00')+86400000);totals[date]=(totals[date]||0)+(stop-cursor)/60000;cursor=stop;}}
+  return totals;
+ },
  validate(session){
   const stamp=value=>Number.isSafeInteger(value)&&value>=0&&value<=253402300799999;
   if(!session||typeof session.id!=='string'||!session.id.length||session.id.length>200||typeof session.goalId!=='string'||!session.goalId.length||session.goalId.length>200||!['running','paused','boundary','finished'].includes(session.status)||!stamp(session.startedAt)||!Array.isArray(session.segments)||!session.segments.length||session.segments.length>10000||session.deadline!=null&&(!stamp(session.deadline)||session.deadline<=session.startedAt)||session.status==='boundary'&&session.deadline==null||![undefined,true,false].includes(session.extended))return false;

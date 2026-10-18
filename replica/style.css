@@ -97,6 +97,18 @@ button:focus-visible,a:focus-visible{outline-color:#939393;outline-width:1px}
 .month-event.done .month-event-label{text-decoration:line-through}.month-more{background:#ffffff08;border-radius:3px;min-height:15px;font-size:9px;line-height:15px;color:#8c8c8c;padding:0 2px}
 @media(max-width:350px){.month-cell{min-height:82px}.month-date .number,.month-date>.number:last-child{font-size:16px}.month-event,.month-more{font-size:8px}.task-labels,.task-calendar-tag,.task-parent-tag{max-width:60px}}
 
+/* Card density changes spacing, not the mobile text scale. Metadata uses the full row. */
+:root{--goal-pad:5px;--goal-gap:3px;--goal-lines:1;--goal-note-lines:1}
+:root[data-card-density=standard]{--goal-pad:9px;--goal-gap:5px;--goal-lines:2;--goal-note-lines:2}
+:root[data-card-density=relaxed]{--goal-pad:14px;--goal-gap:8px;--goal-lines:3;--goal-note-lines:3}
+html .task.goal-card{padding-top:var(--goal-pad);padding-bottom:var(--goal-pad)}
+.goal-card .task-main{display:block;flex:1 1 0;width:0;max-width:none;min-width:0;padding:0}
+.goal-card .task-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--goal-lines);overflow:hidden}
+.goal-details{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:9px;row-gap:2px;margin-top:var(--goal-gap);min-width:0}
+.goal-card .goal-details>.task-meta,.goal-card .goal-details>.goal-origin,.goal-card .goal-details>.task-deadline{margin:0;font-size:10px;line-height:1.35;max-width:100%}
+.goal-card .goal-note{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--goal-note-lines);overflow:hidden;margin-top:var(--goal-gap)}
+.goal-card .goal-percent{flex-shrink:0;white-space:nowrap}.goal-card .task-fold{flex-shrink:0}
+
 /* Goal cards keep the existing compact touch layout and add derived time progress. */
 .goal-card{display:block;padding:10px 12px;border-left:3px solid var(--task-color);background:#292713}
 .goal-card:before{display:none}.goal-card-row{display:flex;align-items:center;gap:6px;min-width:0}
@@ -135,6 +147,22 @@ body,button,input,textarea,select,.task-title,.day .number,.day .lunar{font-fami
 .calendar-glass .month-date .number{color:#eceff3}.calendar-glass .weekdays{color:#c7cbd1}.calendar-glass .month-section-title{color:#e1e4e8;border-color:#ffffff24}
 .calendar-glass .month-event.done{background:#ffffff0b;color:#a8adb4}.calendar-glass .month-scroll{scroll-padding-top:10px}
 @media(prefers-reduced-motion:reduce){.goal-progress>span{transition:none}}
+
+/* Actual focus heatmaps share the same scale in both calendar levels. */
+[data-heat="0"]{--heat-bg:#ffffff08;--heat-ink:#b0bdc4}
+[data-heat="1"]{--heat-bg:#365d53;--heat-ink:#d2e6dc}
+[data-heat="2"]{--heat-bg:#427d67;--heat-ink:#e2f1e6}
+[data-heat="3"]{--heat-bg:#4d9a7a;--heat-ink:#effaf2}
+[data-heat="4"]{--heat-bg:#62b78d;--heat-ink:#122c23}
+[data-heat="5"]{--heat-bg:#8ad6ae;--heat-ink:#122c23}
+.month-date.has-heat{background:radial-gradient(ellipse at center,var(--heat-bg),transparent 72%);border:0;box-shadow:none}
+.month-date.has-heat[data-heat="0"]{background:none}
+.heat-legend{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;font-size:9px;color:#aabbb4;padding:15px 3px 20px}
+.heat-scale{display:flex;gap:4px}.heat-scale i{width:13px;height:13px;border-radius:4px;background:var(--heat-bg)}
+.heat-legend small{flex-basis:100%;text-align:center;font-size:9px;margin-top:4px}
+.mini-month.has-heat .mini-number[data-heat]{background:radial-gradient(ellipse,var(--heat-bg),transparent 85%);color:var(--heat-ink);border:0;box-shadow:none}
+.mini-month.has-heat .mini-number[data-heat="0"]{background:none}
+.mini-month.has-heat .mini-number.is-today{color:#fff;background-color:var(--blue)}
 
 /* Compact mobile task scale; touch targets stay generous without oversized text. */
 .goal-card{padding:6px 8px;margin-bottom:6px;border-radius:12px}.goal-card-row{min-height:36px;gap:4px}

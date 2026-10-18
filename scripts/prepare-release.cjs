@@ -18,6 +18,6 @@ if(!Array.isArray(webAssets)||!webAssets.every(name=>/^[a-z0-9][a-z0-9.-]*$/.tes
 paths.push(...webAssets.map(p=>'replica/'+p));
 const source=crypto.createHash('sha256');
 for(const p of paths.sort()){source.update(p);source.update('\0');source.update(p.endsWith('.jpg')?fs.readFileSync(p):fs.readFileSync(p,'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n'));source.update('\0');}
-const meta={versionCode,versionName,sha256:crypto.createHash('sha256').update(fs.readFileSync('release-artifacts/xu-schedule.apk')).digest('hex'),certificateSha256:previous.certificateSha256,releaseNotes:'新增专注栏：按今日日历或自由选择目标，支持暂停、恢复、计划到点结束和继续计时；实际专注覆盖计划时保留淡色原计划，投入时长不重复累计。新增课表周总览，支持日/课表周/月/年双指缩放；长按日历空白处建任务条，拖动手柄按15分钟吸附，点按编辑、长按删除。任务清单支持可选DDL、剩余天数和批注显示开关，缩小字号行高。新增三款离线摄影背景，日周月共用。重做分层目标与重要度等选择面板，子目标显示完整来源；去除订阅、语音、课程表和跳转入口。完整备份包含专注记录和所有关联。',sourceHash:source.digest('hex'),validationRunId,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};
+const meta={versionCode,versionName,sha256:crypto.createHash('sha256').update(fs.readFileSync('release-artifacts/xu-schedule.apk')).digest('hex'),certificateSha256:previous.certificateSha256,releaseNotes:'月、年视图在原有排版上叠加实际专注热度：不增加框格、不显示时长数字，保留任务条、连续月份和日期跳转。暂停与未来计划不计入热度，跨午夜分别累计，专注记录不重复统计。目标卡片改为横向利用空间，减少高度，保留所属主目标、DDL、批注和投入进度；设置新增紧凑、适中、宽松三档卡片疏密，完整备份保留此设置。保留既有专注、课表总览、手势、摄影背景与自动/手动更新。',sourceHash:source.digest('hex'),validationRunId,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};
 fs.writeFileSync(metadataPath,JSON.stringify(meta,null,2)+'\n');
 console.log(JSON.stringify(meta,null,2));
