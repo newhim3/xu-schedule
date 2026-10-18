@@ -236,6 +236,7 @@
   });
  }
  const overlayChoices=renderOverlay;renderOverlay=function(){overlayChoices();enhanceChoices();};
+ document.addEventListener('keydown',event=>{if(choiceState&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeChoice();}},true);
  const backBeforeChoices=window.handleNativeBack;window.handleNativeBack=()=>{if(choiceState){closeChoice();return true;}return backBeforeChoices();};
  initializeNative();refreshFocus();render();
 })();
