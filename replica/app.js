@@ -244,7 +244,7 @@ settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.2.1');
 // Calendar levels share the same dates and event model, with today independent of selection.
 ui.calendarView='Week';ui.year=Number(ui.month.slice(0,4));
 const HOUR_HEIGHT=44;
-const calendarLevels=['Week','Month','Year'];
+const calendarLevels=['Week','Timetable','Month','Year'];
 let calendarMotion=null,calendarGesture=null,suppressCalendarClickUntil=0;
 function weekStart(date){return addDays(date,-((parseDate(date).getDay()-data.settings.weekStart+7)%7));}
 function monthDates(month){
@@ -304,7 +304,7 @@ function switchCalendarLevel(level,origin){
 }
 function shiftCalendarPeriod(delta){
  calendarMotion={kind:'slide',direction:delta};
- if(ui.calendarView==='Week'){ui.selected=addDays(ui.selected,delta*7);ui.month=ui.selected.slice(0,7);}
+ if(['Week','Timetable'].includes(ui.calendarView)){ui.selected=addDays(ui.selected,delta*7);ui.month=ui.selected.slice(0,7);}
  else if(ui.calendarView==='Year'){ui.year+=delta;ui.month=ui.year+ui.month.slice(4);}
  else{const date=parseDate(ui.month+'-01');date.setMonth(date.getMonth()+delta);ui.month=dateString(date).slice(0,7);}
  render();
@@ -313,13 +313,13 @@ actions['month-prev']=()=>shiftCalendarPeriod(-1);
 actions['month-next']=()=>shiftCalendarPeriod(1);
 shiftMonth=shiftCalendarPeriod;
 actions['calendar-view']=element=>switchCalendarLevel(({Timeline:'Week','Week view':'Week',Overview:'Month',List:'Month','Events view':'Month'})[element.dataset.view]||element.dataset.view);
-actions['calendar-level']=()=>switchCalendarLevel(calendarLevels[Math.min(2,calendarLevels.indexOf(ui.calendarView)+1)]);
+actions['calendar-level']=()=>switchCalendarLevel(calendarLevels[Math.min(calendarLevels.length-1,calendarLevels.indexOf(ui.calendarView)+1)]);
 actions['expand-calendar']=actions['calendar-level'];
 actions['open-month']=element=>{ui.month=element.dataset.month;switchCalendarLevel('Month');};
 actions['day']=element=>{
  const date=element.dataset.date;if(!date)return;
  ui.selected=date;ui.month=date.slice(0,7);
- if(ui.calendarView==='Month')switchCalendarLevel('Week');else{calendarMotion={kind:'day'};render();}
+ if(['Month','Timetable'].includes(ui.calendarView))switchCalendarLevel('Week');else{calendarMotion={kind:'day'};render();}
 };
 actions['go-today']=()=>{ui.selected=today();ui.month=today().slice(0,7);ui.year=Number(ui.month.slice(0,4));calendarMotion={kind:'day',resetMonthScroll:true};render();};
 const overlayWithCalendarMenu=renderOverlay;
@@ -327,7 +327,7 @@ renderOverlay=function(){
  overlayWithCalendarMenu();
  if(menu==='view'&&ui.tab==='todos')$('#overlay > .menu [data-action="show-completed"]')?.remove();
  if(menu==='view'&&ui.tab==='calendar'){
-  const surface=$('#overlay > .menu');if(surface)surface.innerHTML=calendarLevels.map((level,i)=>menuItem('calendar-view',['周视图','月视图','年视图'][i],['timeline','grid','calendar'][i],`data-view="${level}"`,ui.calendarView===level)).join('');
+  const surface=$('#overlay > .menu');if(surface)surface.innerHTML=calendarLevels.map((level,i)=>menuItem('calendar-view',['日视图','课表周视图','月视图','年视图'][i],['timeline','grid','grid','calendar'][i],`data-view="${level}"`,ui.calendarView===level)).join('');
  }
 };
 const renderPlannerContent=render;
@@ -366,7 +366,7 @@ function onCalendarTouchMove(event){
  if(gesture.pinch){
   if(event.touches.length!==2)return;event.preventDefault();if(gesture.used)return;
   const [a,b]=event.touches,ratio=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)/gesture.distance;
-  if(ratio<.78||ratio>1.28){const index=calendarLevels.indexOf(ui.calendarView),next=Math.max(0,Math.min(2,index+(ratio<1?1:-1)));gesture.used=true;suppressCalendarClickUntil=performance.now()+400;switchCalendarLevel(calendarLevels[next],gesture.origin);}
+  if(ratio<.78||ratio>1.28){const index=calendarLevels.indexOf(ui.calendarView),next=Math.max(0,Math.min(calendarLevels.length-1,index+(ratio<1?1:-1)));gesture.used=true;suppressCalendarClickUntil=performance.now()+400;switchCalendarLevel(calendarLevels[next],gesture.origin);}
  }else if(event.touches.length===1){
   gesture.dx=event.touches[0].clientX-gesture.x;gesture.dy=event.touches[0].clientY-gesture.y;
   if(Math.abs(gesture.dx)>14&&Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.3){event.preventDefault();const stage=$('.calendar-stage');if(stage){stage.style.transform=`translateX(${Math.max(-60,Math.min(60,gesture.dx*.4))}px)`;}}

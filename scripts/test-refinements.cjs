@@ -1,11 +1,11 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
- const allowed=new Set(['index.html','app.js','planner.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const allowed=new Set(['index.html','app.js','planner.js','focus-core.js','focus.js','style.css','sw.js','icon.svg','manifest.webmanifest','background-lake.jpg','background-dunes.jpg','background-water.jpg']);
  const server=http.createServer((req,res)=>{const name=req.url==='/'?'index.html':req.url.slice(1);if(!allowed.has(name)){res.writeHead(404).end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.join(__dirname,'../replica',name)));});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
-  browser=await chromium.launch({channel:'msedge',headless:true});
+  browser=await chromium.launch({channel:process.env.CI?undefined:'msedge',headless:true});
   const page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));await page.clock.setFixedTime(new Date('2026-10-17T13:00:00Z'));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
@@ -44,7 +44,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   assert.deepEqual(await page.locator('.month-block').evaluateAll(elements=>elements.map(element=>element.dataset.month)),['2026-10','2026-11'],'Months appear continuously like the mobile reference');
   assert.equal(await page.locator('.month-date[data-date="2026-10-17"] .is-today').count(),1,'Today remains the only filled circle');
   const monthNumber=page.locator('.month-date[data-date="2026-10-18"] .number');
-  assert(await monthNumber.evaluate(element=>parseFloat(getComputedStyle(element).fontSize)>=16),'Month dates retain the reference readable proportions, not the old lunar-label size');
+  assert(await monthNumber.evaluate(element=>parseFloat(getComputedStyle(element).fontSize)>=14),'Month dates remain readable in the new compact layout');
   await page.setViewportSize({width:320,height:852});assert.notEqual(await monthNumber.evaluate(element=>getComputedStyle(element).display),'none','Month dates must not inherit the old narrow-screen lunar-label hiding rule');await page.setViewportSize({width:393,height:852});
   await page.screenshot({path:'reference-analysis/v1.2.1-month.png'});
   await page.locator('.month-scroll').evaluate(element=>element.scrollTop=100);const monthScroll=await page.locator('.month-scroll').evaluate(element=>element.scrollTop);

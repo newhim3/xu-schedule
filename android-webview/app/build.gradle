@@ -10,8 +10,8 @@ android {
         applicationId "com.newhim3.xuschedule"
         minSdk 23
         targetSdk 35
-        versionCode 7
-        versionName "1.3.0"
+        versionCode 8
+        versionName "1.4.0"
     }
 
     buildTypes {
@@ -48,6 +48,6 @@ android.sourceSets.main.assets.srcDirs = [layout.buildDirectory.dir("generated/w
 tasks.register("syncWebAssets", Copy) {
     from(rootProject.file("../replica"))
     into(layout.buildDirectory.dir("generated/web-assets"))
-    include "index.html", "style.css", "app.js", "planner.js", "icon.svg", "manifest.webmanifest", "sw.js"
+    include new groovy.json.JsonSlurper().parse(rootProject.file("../replica/web-assets.json"))
 }
 tasks.named("preBuild").configure { dependsOn("syncWebAssets") }

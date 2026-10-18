@@ -1,11 +1,11 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
- const allowed=new Set(['index.html','app.js','planner.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const allowed=new Set(['index.html','app.js','planner.js','focus-core.js','focus.js','style.css','sw.js','icon.svg','manifest.webmanifest','background-lake.jpg','background-dunes.jpg','background-water.jpg']);
  const server=http.createServer((req,res)=>{const name=req.url==='/'?'index.html':req.url.slice(1);if(!allowed.has(name)){res.writeHead(404).end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.join(__dirname,'../replica',name)));});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
-  browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});
+  browser=await chromium.launch({channel:process.env.CI?undefined:'msedge',headless:true});const page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.clock.setFixedTime(new Date('2026-10-18T04:00:00Z'));await page.goto(`http://127.0.0.1:${server.address().port}`);
   const action=name=>page.locator(`[data-action="${name}"]`).first().click(),tab=name=>page.locator(`[data-tab="${name}"]`).click();
   assert.deepEqual(await page.evaluate(()=>{const previous=data.items;data.items=Array.from({length:5},(_,importance)=>({id:String(importance),kind:'todo',title:'goal',date:'',calendar:'Default',importance}));const result=todoPool().map(x=>x.importance);data.items=previous;return result;}),[4,3,2,1,0],'All five importance levels sort in the requested order');
@@ -34,8 +34,8 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   await action('insight-pin');assert.equal(await page.evaluate(()=>data.insights[0].pinned),true);await page.reload();await tab('insights');await page.waitForTimeout(280);assert((await page.locator('.insight-card').textContent()).includes('2'),'Insights validation survives restart');
   await action('settings');await page.waitForTimeout(300);assert.equal(await page.locator('[data-planner-language]').count(),1,'Language belongs in Settings');
   await page.locator('[data-planner-language]').selectOption('en');await page.waitForTimeout(100);assert.equal(await page.locator('html').getAttribute('lang'),'en');
-  await action('close-panel');await page.waitForTimeout(300);assert.equal(await page.locator('[data-tab="todos"]').textContent(),'Goals','Retained dock updates to English');
-  await tab('todos');await page.waitForTimeout(280);assert((await page.locator('.header h1').textContent()).includes('Goals'));assert.equal(await page.locator('[data-todo-filter="Completed"]').textContent(),'Completed');
+  await action('close-panel');await page.waitForTimeout(300);assert.equal(await page.locator('[data-tab="todos"]').textContent(),'Tasks','Retained dock updates to English');
+  await tab('todos');await page.waitForTimeout(280);const taskHeader=await page.locator('#app > .screen .header h1').textContent();assert(taskHeader.includes('Tasks'),'English task header: '+taskHeader);assert.equal(await page.locator('[data-todo-filter="Completed"]').textContent(),'Completed');
   await page.evaluate(()=>{window.backupCapture=null;window.AndroidBridge={exportBackup:json=>window.backupCapture=JSON.parse(json)};actions['backup-export']();});
   const exported=await page.evaluate(()=>window.backupCapture);assert.equal(exported.insights[0].validationDates.length,2);assert.equal(exported.items.find(x=>x.id===goalId).estimatedMinutes,600);assert.equal(exported.settings.language,'en');
   await page.evaluate(async()=>{const saved=window.backupCapture;data.items=[];data.insights=[];await importBackupFile(new File([JSON.stringify(saved)],'planner.json'));});

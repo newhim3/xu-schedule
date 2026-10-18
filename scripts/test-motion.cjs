@@ -5,7 +5,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 
 (async()=>{
- const allowed=new Set(['index.html','app.js','planner.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const allowed=new Set(['index.html','app.js','planner.js','focus-core.js','focus.js','style.css','sw.js','icon.svg','manifest.webmanifest','background-lake.jpg','background-dunes.jpg','background-water.jpg']);
  const server=http.createServer((req,res)=>{
   const name=req.url==='/'?'index.html':req.url.slice(1);
   if(!allowed.has(name)){res.writeHead(404).end();return;}
@@ -15,7 +15,7 @@ const assert=require('node:assert/strict');
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  let browser;
  try{
-  browser=await chromium.launch({channel:'msedge',headless:true});
+  browser=await chromium.launch({channel:process.env.CI?undefined:'msedge',headless:true});
   const page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`http://127.0.0.1:${server.address().port}/`);

@@ -1,4 +1,5 @@
 'use strict';
+const plannerFocus=typeof FocusCore!=='undefined'?FocusCore:typeof require==='function'?require('./focus-core.js'):null;
 // Goal-driven planner extension. Pure helpers are also exercised directly in Node.
 const GoalCore={
  interval(item){
@@ -13,11 +14,12 @@ const GoalCore={
  goalMinutes(items,id,now=Date.now()){
   const ids=new Set([id]);let changed=true;
   while(changed){changed=false;for(const goal of items){if(goal.kind==='todo'&&ids.has(goal.parentId)&&!ids.has(goal.id)){ids.add(goal.id);changed=true;}}}
+  if(plannerFocus&&items.some(item=>item.focusActual))return plannerFocus.creditMinutes(items,ids,now);
   return items.reduce((sum,item)=>sum+(item.taskBlock&&ids.has(item.goalId)&&item.done&&this.canComplete(item,now)?this.durationMinutes(item):0),0);
  },
  mergeBackup(current,incoming){
   const fail=()=>{throw Error('Invalid planner backup');};
-  if(!incoming||!Array.isArray(incoming.items)||incoming.items.length>10000||(incoming.version&&incoming.version>2))fail();
+  if(!incoming||!Array.isArray(incoming.items)||incoming.items.length>10000||(incoming.version&&incoming.version>3))fail();
   const validDate=value=>typeof value==='string'&&(!value||/^\d{4}-\d{2}-\d{2}$/.test(value)&&new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value);
   const validTime=value=>value===undefined||value===''||typeof value==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
   const safeId=value=>typeof value==='string'&&value.length>0&&value.length<=200;
@@ -39,13 +41,16 @@ const GoalCore={
   settings.categories=[...new Set([...(current.settings?.categories||[]),...(settings.categories||[]),...records.map(item=>item.calendar)])];
   settings.language=settings.language==='en'?'en':'zh';settings.glassCalendar=settings.glassCalendar!==false;
   const byInsight=new Map((current.insights||[]).map(item=>[item.id,item]));for(const item of insights)byInsight.set(item.id,JSON.parse(JSON.stringify(item)));
-  return {...JSON.parse(JSON.stringify(current)),version:2,items:[...byId.values()],insights:[...byInsight.values()],settings,
+  const focusSessions=incoming.focusSessions||[];if(!Array.isArray(focusSessions)||focusSessions.length>10000||focusSessions.some(session=>!plannerFocus?.validate(session)))fail();
+  const byFocus=new Map((current.focusSessions||[]).map(session=>[session.id,session]));for(const session of focusSessions)byFocus.set(session.id,JSON.parse(JSON.stringify(session)));
+  for(const item of records){if(item.deadlineDate!==undefined&&!validDate(item.deadlineDate)||!validTime(item.deadlineTime)||item.focusActual&&(!Number.isFinite(item.actualStartAt)||!Number.isFinite(item.actualEndAt)||item.actualEndAt<=item.actualStartAt))fail();}
+  return {...JSON.parse(JSON.stringify(current)),version:3,items:[...byId.values()],insights:[...byInsight.values()],focusSessions:[...byFocus.values()],settings,
    courses:Array.isArray(incoming.courses)?JSON.parse(JSON.stringify(incoming.courses)):(current.courses||[]),subscriptions:{...(current.subscriptions||{}),...(incoming.subscriptions||{})}};
  }
 };
 if(typeof module!=='undefined'&&module.exports)module.exports=GoalCore;
 if(typeof document!=='undefined'){
- data.version=2;data.insights=Array.isArray(data.insights)?data.insights:[];
+ data.version=3;data.insights=Array.isArray(data.insights)?data.insights:[];
  data.settings.language=['zh','en'].includes(data.settings.language)?data.settings.language:'zh';
  data.settings.glassCalendar=data.settings.glassCalendar!==false;
  const tr=(zh,en)=>data.settings.language==='en'?en:zh;
@@ -170,7 +175,7 @@ if(typeof document!=='undefined'){
  todoFiltersHTML=()=>`<nav class="todo-filters" aria-label="${tr('目标状态筛选','Goal status filter')}">${[['All',tr('全部','All')],['Pending',tr('未完成','Pending')],['Completed',tr('已完成','Completed')]].map(([value,label])=>`<button data-action="todo-filter" data-todo-filter="${value}" aria-pressed="${ui.filter===value}" class="${ui.filter===value?'active':''}">${label}</button>`).join('')}</nav>`;
  // Translate fixed interface copy, never titles, notes, or user-entered option labels.
  const copyPairs=[
-  ['To-dos','目标','Goals'],['Events','日程','Events'],['New to-do','新建目标','New goal'],['No to-dos. Create one to get started.','还没有目标，先创建一个吧。','No goals yet. Create one to get started.'],['＋ New to-do','＋ 新建目标','＋ New goal'],
+  ['To-dos','任务清单','Tasks'],['Events','日程','Events'],['New to-do','新建目标','New goal'],['No to-dos. Create one to get started.','还没有目标，先创建一个吧。','No goals yet. Create one to get started.'],['＋ New to-do','＋ 新建目标','＋ New goal'],
   ['Overdue','已逾期'],['Today','今天'],['Upcoming','即将到来'],['Unscheduled','未安排'],['Done','已完成','Completed'],['Cancel','取消'],['Save','保存'],['Saved','已保存'],['Completed','已完成'],['Marked as in progress','已设为未完成','Marked as pending'],['Color','颜色'],['Reminder preference saved','提醒偏好已保存'],['Edit','编辑'],['New','新建'],['Title','标题'],['Remarks','批注','Notes'],['More settings','更多设置'],['Start','开始'],['End','结束'],['All day','全天'],['Optional','可选'],
   ['More options','更多选项'],['Search events','搜索目标与日程','Search goals and events'],['Course schedule','课程表'],['Jump to','跳转日期'],['Add event with voice','语音输入'],['Subscriptions','订阅'],['Sync and import events','备份与恢复','Backup and restore'],['Settings','设置'],['Back','返回'],['Calendar views','日历视图'],['To-do options','目标选项','Goal options'],['New event or to-do','新建目标或任务','New goal or task'],
   ['Repeat','重复'],['Once','单次'],['Every day','每天'],['Every week','每周'],['Every month','每月'],['Every year','每年'],['Reminder','提醒'],['None','无'],['At time of event','开始时'],['5 minutes before','提前5分钟'],['15 minutes before','提前15分钟'],['30 minutes before','提前30分钟'],['1 day before','提前1天'],['Alarm · 闹钟','闹钟','Alarm'],['闹钟和自动提醒','闹钟与通知','Alarms and notifications'],['Notification','通知'],['Alarm','闹钟'],['Sound','声音'],['Cozy','轻柔'],
@@ -179,6 +184,7 @@ if(typeof document!=='undefined'){
   ['周视图','周视图','Week'],['月视图','月视图','Month'],['年视图','年视图','Year'],['回到今天','回到今天','Today'],['全天','全天','All day'],['上一周','上一周','Previous week'],['下一周','下一周','Next week'],['上个月','上个月','Previous month'],['下个月','下个月','Next month'],['上一年','上一年','Previous year'],['下一年','下一年','Next year'],
   ['My calendar','我的日历'],['Filter','筛选'],['Calendar type','日历类型'],['Displayed items','显示项目'],['View','显示'],['Other','其他'],['Default','默认'],['Birthday','生日'],['Anniversary','纪念日'],['Countdown','倒计时'],['learning','学习','Learning'],['Sunday','星期日'],['Monday','星期一'],['Week starts on','每周起始日'],['OK','确定']
   ,['Start recording','开始录音'],['Type instead','手动输入'],['说出你的日程或待办事项','说出你的日程或任务','Say your event or task'],['Listening…','正在聆听…'],['Jump to date','跳转日期'],['Start date','开始日期'],['End date','结束日期'],['Start time','开始时间'],['End time','结束时间'],['Estimated hours','预估小时'],['Language','语言'],['Goal','目标'],['Sort by importance','按重要度排序'],['Clear sorting','按重要度排序','Sort by importance'],['请安装 Android 手机版','请安装 Android 手机版','Install the Android app'],['自动更新功能在 Android 手机版中提供','自动更新功能在 Android 手机版中提供','Updates are available in the Android app'],['所选待办将被删除。','所选目标将被删除。','Selected goals will be removed.']
+  ,['日视图','日视图','Day'],['课表周视图','课表周视图','Week timetable']
  ];
  function fixedCopy(text){
   const cleaned=text.trim();if(!cleaned)return text;
@@ -193,18 +199,18 @@ if(typeof document!=='undefined'){
   const language=data.settings.language;document.documentElement.lang=language==='en'?'en':'zh-CN';document.documentElement.classList.toggle('locale-en',language==='en');
   for(const scope of [$('#app'),$('#overlay')]){
    const walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);let node;
-   while((node=walker.nextNode())){const parent=node.parentElement;if(parent?.closest('.task-title,.goal-note,.insight-title,.insight-notes,.time-note,.time-block strong,.month-event-label,input,textarea,select[data-draft="goalId"],select[data-draft="parentId"] option:not([value=""])'))continue;node.nodeValue=fixedCopy(node.nodeValue);}
+   while((node=walker.nextNode())){const parent=node.parentElement;if(parent?.closest('.task-title,.goal-note,.goal-origin,.focus-origin,.insight-title,.insight-notes,.time-note,.time-block strong,.month-event-label,input,textarea,select[data-draft="goalId"],select[data-draft="parentId"] option:not([value=""])'))continue;node.nodeValue=fixedCopy(node.nodeValue);}
    for(const element of scope.querySelectorAll('[aria-label],[placeholder],[title]'))for(const attr of ['aria-label','placeholder','title']){const value=element.getAttribute(attr);if(value&&!(element.matches('[data-action="edit"],.month-event,.time-block-main')))element.setAttribute(attr,fixedCopy(value));}
   }
-  for(const element of document.querySelectorAll('.dock [data-tab]'))element.textContent=({calendar:tr('日历','Calendar'),todos:tr('目标','Goals'),insights:tr('感悟','Insights')})[element.dataset.tab];
-  const control=$('.dock .round');if(control)control.dataset.action=ui.tab==='insights'?'settings':'view-menu';
-  const header=$('.calendar-head .month-title');if(header){const month=ui.month+'-01',title=ui.calendarView==='Year'?tr(ui.year+'年',String(ui.year)):new Intl.DateTimeFormat(language==='en'?'en-US':'zh-CN',{month:'long',year:'numeric'}).format(parseDate(month));header.innerHTML=esc(title)+`<small>${ui.calendarView==='Week'?tr('第 '+weekNumber(ui.selected)+' 周','Week '+weekNumber(ui.selected)):tr(ui.calendarView==='Month'?'月视图':'年视图',ui.calendarView==='Month'?'Month':'Year')}</small>`;}
+  for(const element of document.querySelectorAll('.dock [data-tab]'))element.textContent=({calendar:tr('日历','Calendar'),focus:tr('专注','Focus'),todos:tr('任务清单','Tasks'),insights:tr('感悟','Insights')})[element.dataset.tab];
+  const control=$('.dock .round');if(control)control.dataset.action=['insights','focus'].includes(ui.tab)?'settings':'view-menu';
+  const header=$('.calendar-head .month-title');if(header){const month=ui.month+'-01',title=ui.calendarView==='Year'?tr(ui.year+'年',String(ui.year)):new Intl.DateTimeFormat(language==='en'?'en-US':'zh-CN',{month:'long',year:'numeric'}).format(parseDate(month));header.innerHTML=esc(title)+`<small>${['Week','Timetable'].includes(ui.calendarView)?tr((ui.calendarView==='Timetable'?'课表 · ':'日视图 · ')+'第 '+weekNumber(ui.selected)+' 周',(ui.calendarView==='Timetable'?'Week overview · ':'Day · ')+weekNumber(ui.selected)):tr(ui.calendarView==='Month'?'月视图':'年视图',ui.calendarView==='Month'?'Month':'Year')}</small>`;}
   if(language==='en'){
    for(const weekdays of document.querySelectorAll('.mini-weekdays'))Array.from(weekdays.children).forEach((day,i)=>day.textContent=['S','M','T','W','T','F','S'][(i+data.settings.weekStart)%7]);
    for(const heading of document.querySelectorAll('.mini-month>strong')){const month=heading.parentElement.dataset.month;heading.textContent=new Intl.DateTimeFormat('en-US',{month:'short'}).format(parseDate(month+'-01'));}
    for(const heading of document.querySelectorAll('.month-section-title')){const month=heading.parentElement.dataset.month;heading.textContent=new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric'}).format(parseDate(month+'-01'));}
   }
-  $('#app > .screen')?.classList.toggle('calendar-glass',ui.tab==='calendar'&&ui.calendarView==='Month'&&data.settings.glassCalendar);
+  $('#app > .screen')?.classList.toggle('calendar-glass',ui.tab==='calendar'&&data.settings.glassCalendar);
   if(window.AndroidBridge?.setLanguage)AndroidBridge.setLanguage(language);
  }
  weekdaysHTML=()=>`<div class="weekdays">${Array.from({length:7},(_,i)=>`<span>${(data.settings.language==='en'?['S','M','T','W','T','F','S']:['日','一','二','三','四','五','六'])[(i+data.settings.weekStart)%7]}</span>`).join('')}</div>`;
@@ -253,7 +259,7 @@ if(typeof document!=='undefined'){
  // Completed sessions remain visible so their credited time can be reviewed or undone.
  const calendarItemsForDay=eventsForDay;eventsForDay=date=>calendarItemsForDay(date,true);
  exportBackup=()=>{
-  const json=JSON.stringify({...data,version:2,exportedAt:new Date().toISOString()},null,2);
+  const json=JSON.stringify({...data,version:3,exportedAt:new Date().toISOString()},null,2);
   if(new Blob([json]).size>5000000){toast(tr('备份超过5MB，请先减少过长的批注','Backup exceeds 5 MB; shorten very long notes first'));return;}
   if(window.AndroidBridge?.exportBackup){AndroidBridge.exportBackup(json);return;}
   const link=document.createElement('a'),url=URL.createObjectURL(new Blob([json],{type:'application/json'}));link.href=url;link.download='xu-schedule-backup-'+today()+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -267,5 +273,5 @@ if(typeof document!=='undefined'){
   }catch{toast(tr('备份格式不正确，原数据未改变','Invalid backup; existing data was not changed'));}
   finally{$('#import-file').value='';}
  };
- initializeNative();render();
+ // focus.js installs the final navigation and initializes the application.
 }

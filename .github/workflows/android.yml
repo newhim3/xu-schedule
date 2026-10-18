@@ -2,9 +2,9 @@ name: Android validation
 on:
   push:
     branches: [main, 'codex/**']
-    paths: ['android-webview/**', 'replica/**', '.github/workflows/android.yml']
+    paths: ['android-webview/**', 'replica/**', 'scripts/test-*.cjs', '.github/workflows/android.yml']
   pull_request:
-    paths: ['android-webview/**', 'replica/**', '.github/workflows/android.yml']
+    paths: ['android-webview/**', 'replica/**', 'scripts/test-*.cjs', '.github/workflows/android.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,7 +25,9 @@ jobs:
           gradle-version: '8.9'
       - run: node --check replica/app.js
       - run: node --check replica/planner.js
+      - run: node --check replica/focus-core.js && node --check replica/focus.js
       - run: node scripts/test-goal-core.cjs
+      - run: node scripts/test-focus-core.cjs && node scripts/test-web-assets.cjs
       - run: gradle -p android-webview --no-daemon assembleDebug assembleRelease testDebugUnitTest lintDebug
       - uses: actions/upload-artifact@v4
         if: always()
@@ -35,4 +37,24 @@ jobs:
             android-webview/app/build/outputs/apk/debug/*.apk
             android-webview/app/build/outputs/apk/release/*.apk
             android-webview/app/build/reports/
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --package-lock=false playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/test-focus-ui.cjs
+      - run: node scripts/test-choices-ui.cjs
+      - run: node scripts/test-goal-ui.cjs
+      - run: node scripts/test-planner.cjs
+      - run: node scripts/test-refinements.cjs
+      - run: node scripts/test-motion.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-ui-validation
+          path: reference-analysis/*.png
 

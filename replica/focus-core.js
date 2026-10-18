@@ -1,0 +1,67 @@
+'use strict';
+// Wall-clock intervals survive suspension, navigation and process restarts.
+const FocusCore={
+ stamp(date,time){return Date.parse(date+'T'+time+':00+08:00');},
+ parts(stamp){const value=new Date(stamp+28800000).toISOString();return {date:value.slice(0,10),time:value.slice(11,16)};},
+ range(item){return item.focusActual?[item.actualStartAt,item.actualEndAt]:[this.stamp(item.date,item.time),this.stamp(item.endDate||item.date,item.endTime)];},
+ available(plan,now){const [start,end]=this.range(plan);return !plan.done&&!plan.focusActual&&Number.isFinite(start)&&now>=start&&now<end;},
+ start({id,goalId,goalTitle='',color='#5ba6a0',plan=null},now){
+  if(plan&&!this.available(plan,now))throw Error('Outside planned window');
+  return {id,goalId,goalTitle,color,planId:plan?.id||null,deadline:plan?this.range(plan)[1]:null,startedAt:now,status:'running',extended:false,segments:[{start:now,end:null}]};
+ },
+ elapsed(session,now){return session.segments.reduce((sum,part)=>sum+Math.max(0,(part.end??(session.deadline&&!session.extended?Math.min(now,session.deadline):now))-part.start),0);},
+ reconcile(session,now){
+  const copy=JSON.parse(JSON.stringify(session));
+  if(!['finished','boundary'].includes(copy.status)&&copy.deadline&&!copy.extended&&now>=copy.deadline){
+   copy.wasRunning=copy.status==='running';for(const segment of copy.segments)if(segment.end===null)segment.end=Math.max(segment.start,copy.deadline);copy.status='boundary';
+  }
+  return copy;
+ },
+ pause(session,now){const copy=this.reconcile(session,now);if(copy.status==='running'){copy.segments.at(-1).end=now;copy.status='paused';}return copy;},
+ resume(session,now){const copy=this.reconcile(session,now);if(copy.status==='paused'){copy.segments.push({start:now,end:null});copy.status='running';}return copy;},
+ extend(session,now){const copy=this.reconcile(session,now);if(copy.status==='boundary'){copy.extended=true;copy.status='running';copy.segments.push({start:copy.wasRunning?copy.deadline:now,end:null});}return copy;},
+ finish(session,now){const copy=this.reconcile(session,now);for(const segment of copy.segments)if(segment.end===null)segment.end=now;copy.status='finished';copy.finishedAt=now;return copy;},
+ snap(minutes){return Math.max(0,Math.min(1440,Math.round(minutes/15)*15));},
+ project(items,session){
+  const result=items.filter(item=>item.focusId!==session.id).map(item=>({...item}));
+  const goal=result.find(item=>item.id===session.goalId);
+  const closed=session.segments.filter(part=>Number.isFinite(part.end)&&part.end>part.start);
+  closed.forEach((part,index)=>{
+   const start=this.parts(part.start),end=this.parts(part.end);
+   result.push({id:'focus-'+session.id+'-'+index,kind:'event',taskBlock:true,focusActual:true,focusId:session.id,goalId:session.goalId,sourcePlanId:session.planId,title:goal?.title||session.goalTitle||'专注',color:goal?.color||session.color,calendar:goal?.calendar||'Default',date:start.date,time:start.time,endDate:end.date,endTime:end.time,actualStartAt:part.start,actualEndAt:part.end,done:true,reminder:'None',notes:''});
+  });
+  for(const item of result){
+   if(item.kind!=='event'||item.focusActual||item.allDay)continue;
+   const original=item.planOriginal||{date:item.date,time:item.time,endDate:item.endDate||item.date,endTime:item.endTime};
+   const [start,end]=this.range(original);
+   const overlaps=closed.some(part=>part.start<end&&part.end>start);
+   if(overlaps){item.planOriginal=original;item.focusCoveredBy=[...new Set([...(item.focusCoveredBy||[]),session.id])];}
+   if(item.id===session.planId&&closed.length){item.planOriginal=original;const actualEnd=closed.at(-1).end;const endParts=this.parts(actualEnd);item.endDate=endParts.date;item.endTime=endParts.time;item.actualStartAt=closed[0].start;item.actualEndAt=actualEnd;}
+  }
+  return result;
+ },
+ creditMinutes(items,ids,now){
+  const actual=items.filter(item=>item.focusActual&&item.done&&Number.isFinite(item.actualStartAt)&&Number.isFinite(item.actualEndAt)&&item.actualEndAt<=now);
+  let total=actual.filter(item=>ids.has(item.goalId)).reduce((sum,item)=>sum+Math.max(0,item.actualEndAt-item.actualStartAt),0);
+  for(const item of items){
+   if(item.focusActual||!item.taskBlock||!item.done||!ids.has(item.goalId))continue;
+   const [start,end]=this.range(item);if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||end>now)continue;
+   const covered=actual.map(other=>[Math.max(start,other.actualStartAt),Math.min(end,other.actualEndAt)]).filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+   let excluded=0,cursor=start;for(const [a,b] of covered){excluded+=Math.max(0,b-Math.max(cursor,a));cursor=Math.max(cursor,b);}
+   total+=end-start-excluded;
+  }
+  return total/60000;
+ },
+ validate(session){
+  const stamp=value=>Number.isSafeInteger(value)&&value>=0&&value<=253402300799999;
+  if(!session||typeof session.id!=='string'||!session.id.length||session.id.length>200||typeof session.goalId!=='string'||!session.goalId.length||session.goalId.length>200||!['running','paused','boundary','finished'].includes(session.status)||!stamp(session.startedAt)||!Array.isArray(session.segments)||!session.segments.length||session.segments.length>10000||session.deadline!=null&&(!stamp(session.deadline)||session.deadline<=session.startedAt)||session.status==='boundary'&&session.deadline==null||![undefined,true,false].includes(session.extended))return false;
+  let previousEnd=session.startedAt,open=0;
+  for(let index=0;index<session.segments.length;index++){
+   const part=session.segments[index];if(!part||!stamp(part.start)||part.start<previousEnd)return false;
+   if(part.end===null){if(index!==session.segments.length-1)return false;open++;}
+   else{if(!stamp(part.end)||part.end<part.start)return false;previousEnd=part.end;}
+  }
+  return session.status==='running'?open===1:open===0;
+ }
+};
+if(typeof module!=='undefined'&&module.exports)module.exports=FocusCore;

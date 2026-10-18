@@ -1,11 +1,11 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
- const allowed=new Set(['index.html','app.js','planner.js','style.css','sw.js','icon.svg','manifest.webmanifest']);
+ const allowed=new Set(['index.html','app.js','planner.js','focus-core.js','focus.js','style.css','sw.js','icon.svg','manifest.webmanifest','background-lake.jpg','background-dunes.jpg','background-water.jpg']);
  const server=http.createServer((req,res)=>{const file=req.url==='/'?'index.html':req.url.slice(1);if(!allowed.has(file)){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript; charset=utf-8':file.endsWith('.css')?'text/css':'text/html; charset=utf-8');res.end(fs.readFileSync(path.join(__dirname,'../replica',file)));});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
-  browser=await chromium.launch({channel:'msedge',headless:true});
+  browser=await chromium.launch({channel:process.env.CI?undefined:'msedge',headless:true});
   const page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.clock.setFixedTime(new Date('2026-10-17T07:00:00Z'));
@@ -52,7 +52,8 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   assert.equal(await page.locator('.calendar-outgoing').count(),0,'Swipe cleans old month/week surfaces');
   await click('month-prev');await page.waitForTimeout(280);
   async function pinch(){await touch('touchStart',[[80,300],[310,300]]);await touch('touchMove',[[145,300],[245,300]]);await touch('touchEnd',[]);await page.waitForTimeout(300);}
-  await pinch();assert.equal(await page.locator('.calendar-stage').getAttribute('data-level'),'Month','Pinch week → month');
+  await pinch();assert.equal(await page.locator('.calendar-stage').getAttribute('data-level'),'Timetable','Pinch day → timetable');
+  await pinch();assert.equal(await page.locator('.calendar-stage').getAttribute('data-level'),'Month','Pinch timetable → month');
   assert.equal(await page.locator('.month-block[data-month="2026-10"] .month-cell').count(),31,'Month contains its actual dates without boxed adjacent-month cells');
   assert(await page.locator('.month-event-label').allTextContents().then(t=>t.includes('项目讨论')&&t.includes('第二天事项')),'Month shows tasks on multiple dates together');
   await page.screenshot({path:'reference-analysis/v1.2-month.png'});
@@ -67,7 +68,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   assert.equal(await page.locator('.calendar-stage').getAttribute('data-level'),'Week','Month date drills into its week');
   assert.equal(await page.locator('.daily-timeline').getAttribute('aria-label'),'2026-10-18 时间轴');
   assert.equal(await page.locator('.time-block[data-id="night"]').evaluate(element=>parseFloat(element.style.height)),44,'Cross-midnight event clips to correct daily interval');
-  await click('view-menu');assert.equal(await page.locator('.menu [data-action="calendar-view"]').count(),3);
+  await click('view-menu');assert.equal(await page.locator('.menu [data-action="calendar-view"]').count(),4);
   await page.locator('[data-view="Year"]').click();await page.waitForTimeout(280);
   await click('month-next');await page.waitForTimeout(280);assert.equal(await page.evaluate(()=>ui.year),2027);
   await page.locator('[data-month="2027-01"]').click();await page.waitForTimeout(280);await click('month-prev');await page.waitForTimeout(280);assert.equal(await page.evaluate(()=>ui.month),'2026-12','Year boundary navigation');
