@@ -8,7 +8,9 @@
 - 任务支持四象限优先级与“待设置”状态
 - 待办列表按紧急重要 → 紧急不重要 → 不紧急重要 → 不紧急不重要排序
 - 日历支持日/课表周/月/年四级视图、双指缩放与连续月份，月视图显示完整任务和时间
+- 月、年视图在现有日期上叠加实际专注热度，不新增框格或时长数字；暂停、未来计划和重复记录不计入热度
 - 目标和子目标支持批注、可选预估时长和投入进度
+- 目标卡片横向排布来源、投入和DDL信息；设置可选紧凑、适中、宽松三档卡片疏密，不改变字号
 - 将日历任务关联到任意目标：结束后勾选才累计时长，撤销则扣回，父目标汇总子目标
 - 专注栏可按今日日历或自由选择目标；支持暂停、恢复、计划结束后确认续计。使用持久化的真实时间区间计时，暂停不计入投入；应用被挂起或重启后仍可恢复
 - 实际专注优先于计划：保留淡色原计划和实际轨，重叠区间不重复累计。短记录用真实时长细轨和不重叠标签保证可读
@@ -23,7 +25,7 @@
 
 手机版源码在 `replica/`，可用静态 HTTP 服务预览。Android 壳位于 `android-webview/`，构建时从该目录同步资源。仓库根目录的早期网页原型不用于 APK。
 
-纯逻辑测试：`node scripts/test-goal-core.cjs`、`node scripts/test-focus-core.cjs`、`node scripts/test-web-assets.cjs`。浏览器回归（本机使用 Playwright 与 Edge，CI 使用 Chromium）：`node scripts/test-focus-ui.cjs`、`node scripts/test-choices-ui.cjs`、`node scripts/test-goal-ui.cjs`、`node scripts/test-planner.cjs`、`node scripts/test-refinements.cjs`、`node scripts/test-motion.cjs`。完整运行后再生成 APK。
+纯逻辑测试：`node scripts/test-goal-core.cjs`、`node scripts/test-focus-core.cjs`、`node scripts/test-heatmap-core.cjs`、`node scripts/test-web-assets.cjs`。浏览器回归（本机使用 Playwright 与 Edge，CI 使用 Chromium）：`node scripts/test-focus-ui.cjs`、`node scripts/test-choices-ui.cjs`、`node scripts/test-heatmap-ui.cjs`、`node scripts/test-card-density.cjs`、`node scripts/test-goal-ui.cjs`、`node scripts/test-planner.cjs`、`node scripts/test-refinements.cjs`、`node scripts/test-motion.cjs`。完整运行后再生成 APK。
 
 ## 密钥说明
 
