@@ -366,7 +366,7 @@ render=function(){
  retireSurface(outgoing,{transform:leaving,opacity:'0'},220);
 };
 function onCalendarTouchStart(event){
- if(panel||menu||modal||ui.tab!=='calendar'||!event.target.closest('.calendar-stage'))return;
+ if(panel||menu||modal||ui.tab!=='calendar'||!calendarLevels.includes(ui.calendarView)||!event.target.closest('.calendar-stage'))return;
  if(event.touches.length===2){
   const [a,b]=event.touches;event.preventDefault();
   calendarGesture={pinch:true,distance:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),origin:{x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2},used:false};

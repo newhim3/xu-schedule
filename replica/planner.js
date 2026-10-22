@@ -199,7 +199,7 @@ if(typeof document!=='undefined'){
   const language=data.settings.language;document.documentElement.lang=language==='en'?'en':'zh-CN';document.documentElement.classList.toggle('locale-en',language==='en');
   for(const scope of [$('#app'),$('#overlay')]){
    const walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);let node;
-   while((node=walker.nextNode())){const parent=node.parentElement;if(parent?.closest('.task-title,.goal-note,.goal-origin,.focus-origin,.insight-title,.insight-notes,.time-note,.time-block strong,.month-event-label,input,textarea,select[data-draft="goalId"],select[data-draft="parentId"] option:not([value=""])'))continue;node.nodeValue=fixedCopy(node.nodeValue);}
+   while((node=walker.nextNode())){const parent=node.parentElement;if(parent?.closest('.task-title,.goal-note,.goal-origin,.focus-origin,.insight-title,.insight-notes,.time-note,.time-block strong,.timetable-event strong,.stats-goal-row>span,.stats-record-list strong,.timeline-record-list strong,.month-event-label,input,textarea,select[data-draft="goalId"],select[data-draft="parentId"] option:not([value=""])'))continue;node.nodeValue=fixedCopy(node.nodeValue);}
    for(const element of scope.querySelectorAll('[aria-label],[placeholder],[title]'))for(const attr of ['aria-label','placeholder','title']){const value=element.getAttribute(attr);if(value&&!(element.matches('[data-action="edit"],.month-event,.time-block-main')))element.setAttribute(attr,fixedCopy(value));}
   }
   for(const element of document.querySelectorAll('.dock [data-tab]'))element.textContent=({calendar:tr('日历','Calendar'),focus:tr('专注','Focus'),todos:tr('任务清单','Tasks'),insights:tr('感悟','Insights')})[element.dataset.tab];

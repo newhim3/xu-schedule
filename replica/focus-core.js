@@ -67,6 +67,27 @@ const FocusCore={
   for(const [start,end] of merged){let cursor=start;while(cursor<end){const date=this.parts(cursor).date,stop=Math.min(end,this.stamp(date,'00:00')+86400000);totals[date]=(totals[date]||0)+(stop-cursor)/60000;cursor=stop;}}
   return totals;
  },
+ statistics(items,sessions,date,now){
+  const raw=[],known=new Set(),byId=new Map(items.map(item=>[item.id,item])),dayStart=this.stamp(date,'00:00'),dayEnd=dayStart+86400000;
+  const add=(start,end,goalId,sessionId,title,color)=>{end=Math.min(end,now);if(Number.isFinite(start)&&Number.isFinite(end)&&end>start)raw.push({start,end,goalId:goalId||'',sessionId,title,color});};
+  for(const session of sessions){if(!this.validate(session))continue;known.add(session.id);const snapshot=this.reconcile(session,now);for(const part of snapshot.segments)add(part.start,part.end??now,session.goalId,session.id,session.goalTitle,session.color);}
+  for(const item of items)if(item.focusActual&&!known.has(item.focusId))add(item.actualStartAt,item.actualEndAt,item.goalId,item.focusId||item.id,item.title,item.color);
+  const events=raw.flatMap((part,index)=>[{time:part.start,index,open:true},{time:part.end,index,open:false}]).sort((a,b)=>a.time-b.time),active=new Map(),canonical=[];
+  let cursor=0;while(cursor<events.length){const time=events[cursor].time;while(cursor<events.length&&events[cursor].time===time){const event=events[cursor++];if(event.open)active.set(event.index,raw[event.index]);else active.delete(event.index);}
+   const end=events[cursor]?.time;if(!active.size||!Number.isFinite(end)||end<=time)continue;
+   let owner;for(const part of active.values())if(!owner||part.start>=owner.start)owner=part;
+   canonical.push({...owner,start:time,end});
+  }
+  const daily={},hourly=Array(24).fill(0),goals=new Map();let totalMinutes=0;
+  for(const part of canonical){let start=part.start;totalMinutes+=(part.end-start)/60000;
+   while(start<part.end){const key=this.parts(start).date,stop=Math.min(part.end,this.stamp(key,'00:00')+86400000);daily[key]=(daily[key]||0)+(stop-start)/60000;start=stop;}
+   start=Math.max(dayStart,part.start);const end=Math.min(dayEnd,part.end);if(end<=start)continue;
+   const goal=byId.get(part.goalId),entry=goals.get(part.goalId)||{goalId:part.goalId,title:goal?.title||part.title||'专注',color:goal?.color||part.color||'#80b8a6',minutes:0};entry.minutes+=(end-start)/60000;goals.set(part.goalId,entry);
+   while(start<end){const hour=Math.floor((start-dayStart)/3600000),stop=Math.min(end,dayStart+(hour+1)*3600000);hourly[hour]+=(stop-start)/60000;start=stop;}
+  }
+  const records=raw.filter(part=>part.start<dayEnd&&part.end>dayStart).map(part=>({...part,start:Math.max(dayStart,part.start),end:Math.min(dayEnd,part.end)})).sort((a,b)=>a.start-b.start);
+  return {minutes:daily[date]||0,count:new Set(records.map(part=>part.sessionId)).size,totalMinutes,totalCount:new Set(raw.map(part=>part.sessionId)).size,activeDays:Object.keys(daily).length,daily,hourly,goals:[...goals.values()].sort((a,b)=>b.minutes-a.minutes),records};
+ },
  validate(session){
   const stamp=value=>Number.isSafeInteger(value)&&value>=0&&value<=253402300799999;
   if(!session||typeof session.id!=='string'||!session.id.length||session.id.length>200||typeof session.goalId!=='string'||!session.goalId.length||session.goalId.length>200||!['running','paused','boundary','finished'].includes(session.status)||!stamp(session.startedAt)||!Array.isArray(session.segments)||!session.segments.length||session.segments.length>10000||session.deadline!=null&&(!stamp(session.deadline)||session.deadline<=session.startedAt)||session.status==='boundary'&&session.deadline==null||![undefined,true,false].includes(session.extended))return false;

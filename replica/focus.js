@@ -40,11 +40,27 @@
  const ordinaryCalendar=calendarHTML;
  calendarHTML=()=>{
   if(ui.tab==='focus')return focusHTML();const html=ordinaryCalendar();
-  if(ui.tab!=='calendar'||!['Timetable','Month','Year'].includes(ui.calendarView))return html;
+  if(ui.tab!=='calendar'||!['Timetable','Month','Year','Dashboard'].includes(ui.calendarView))return html;
   const template=document.createElement('template');template.innerHTML=html;
-  if(ui.calendarView==='Timetable')template.content.querySelector('.calendar-stage').innerHTML=timetableHTML();
+  if(ui.calendarView==='Dashboard')template.content.querySelector('.calendar-stage').innerHTML=statisticsHTML();
+  else if(ui.calendarView==='Timetable')template.content.querySelector('.calendar-stage').innerHTML=timetableHTML();
   else addCalendarHeat(template.content);return template.innerHTML;
  };
+ const statTime=minutes=>{const value=Math.floor(minutes),hours=Math.floor(value/60),rest=value%60;return hours?hours+'h'+(rest?rest+'m':''):value+'m';};
+ function selectedStatistics(){return FocusCore.statistics(data.items,data.focusSessions,ui.selected,Date.now());}
+ function statisticsHTML(){
+  const stats=selectedStatistics(),day=ui.selected,month=day.slice(0,7),days=new Date(Number(month.slice(0,4)),Number(month.slice(5)),0).getDate(),maxDaily=Math.max(1,...Array.from({length:days},(_,i)=>stats.daily[month+'-'+String(i+1).padStart(2,'0')]||0)),colors=['#8cbfae','#cc94a5','#92aed4','#c4b17c','#aaa1ce'];
+  let angle=0;const slices=stats.goals.map((goal,index)=>{const start=angle;angle+=goal.minutes/stats.minutes*360;return colors[index%colors.length]+' '+start+'deg '+angle+'deg';});
+  const goalRows=stats.goals.map((goal,index)=>{const item=data.items.find(item=>item.id===goal.goalId);return `<div class="stats-goal-row"><i style="background:${colors[index%colors.length]}"></i><span>${esc(item?goalPath(item):goal.title)}<small>${statTime(goal.minutes)}</small></span><b>${(goal.minutes/stats.minutes*100).toFixed(1)}%</b></div>`;}).join('');
+  const metric=(label,value,key)=>`<div><small>${label}</small><strong ${key?`data-stat="${key}"`:''}>${value}</strong></div>`;
+  return `<div class="statistics-board"><section class="stats-card"><h2>${t('累计专注','All-time focus')}</h2><div class="stats-metrics">${metric(t('次数','Sessions'),stats.totalCount)}${metric(t('总时长','Total'),statTime(stats.totalMinutes))}${metric(t('有专注日均','Per active day'),statTime(stats.activeDays?stats.totalMinutes/stats.activeDays:0))}</div></section><section class="stats-card"><header><h2>${t('当日专注','Daily focus')}</h2><div class="stats-date-controls"><button data-action="stats-prev" aria-label="${t('前一天','Previous day')}">${icon('back')}</button><input id="stats-date" type="date" aria-label="${t('统计日期','Statistics date')}" value="${day}"><button data-action="stats-next" aria-label="${t('后一天','Next day')}">${icon('next')}</button></div></header><div class="stats-metrics day-metrics">${metric(t('次数','Sessions'),stats.count,'day-count')}${metric(t('实际时长','Actual time'),statTime(stats.minutes),'day-minutes')}</div></section><section class="stats-card"><h2>${t('当日目标时长分布','Time by goal')}</h2>${stats.minutes?`<div class="stats-donut" role="img" aria-label="${t('目标时长占比','Focus share by goal')}" style="background:conic-gradient(${slices.join(',')})"><div><strong>${statTime(stats.minutes)}</strong><small>${t('实际专注','Actual focus')}</small></div></div><div class="stats-goals">${goalRows}</div>`:`<p class="stats-empty">${t('当天暂无专注记录，开始一次专注后会自动统计。','No focus yet. Start a session to see your statistics.')}</p>`}<button class="stats-records-button" data-action="stats-records">${t('查看专注记录','View focus records')}</button></section><section class="stats-card"><h2>${t('当日专注时段','Focus by hour')}</h2><div class="stats-hours" role="img" aria-label="${t('各小时实际专注分钟数','Actual focus minutes per hour')}">${stats.hourly.map((minutes,hour)=>`<span class="stats-hour" title="${hour}:00 · ${statTime(minutes)}"><i style="height:${minutes/60*100}%"></i><small>${hour%6===0?hour:''}</small></span>`).join('')}</div><p class="stats-note">${t('0—23 时 · 暂停不计入时长','00–23h · pauses excluded')}</p></section><section class="stats-card"><h2>${month} · ${t('月度专注趋势','Monthly focus trend')}</h2><div class="stats-trend" role="img" aria-label="${month} ${t('每日专注时长','daily focus')}">${Array.from({length:days},(_,index)=>{const date=month+'-'+String(index+1).padStart(2,'0'),minutes=stats.daily[date]||0;return `<span class="stats-trend-point ${date===day?'selected':''}" title="${date} · ${statTime(minutes)}"><i style="height:${minutes/maxDaily*100}%"></i><small>${index%7===0||index===days-1?index+1:''}</small></span>`;}).join('')}</div><p class="stats-note">${t('按实际专注统计，不含仅安排未执行的计划','Actual focus only; unperformed plans are excluded')}</p></section></div>`;
+ }
+ actions.dashboard=()=>{menu=null;ui.calendarView='Dashboard';calendarMotion={kind:'day'};render();};
+ function moveStatistics(delta){ui.selected=addDays(ui.selected,delta);ui.month=ui.selected.slice(0,7);calendarMotion={kind:'day'};render();}
+ actions['stats-prev']=()=>moveStatistics(-1);actions['stats-next']=()=>moveStatistics(1);
+ for(const [action,delta] of [['month-prev',-1],['month-next',1]]){const original=actions[action];actions[action]=()=>ui.calendarView==='Dashboard'&&ui.tab==='calendar'?moveStatistics(delta):original();}
+ document.addEventListener('change',event=>{if(event.target.id==='stats-date'&&/^\d{4}-\d{2}-\d{2}$/.test(event.target.value)){ui.selected=event.target.value;ui.month=ui.selected.slice(0,7);render();}});
+ actions['stats-records']=()=>{const stats=selectedStatistics();showDialog(ui.selected+' · '+t('专注记录','Focus records'),`<div class="stats-record-list">${stats.records.map(record=>{const goal=data.items.find(item=>item.id===record.goalId);return `<div><strong>${esc(goal?goalPath(goal):record.title||t('专注','Focus'))}</strong><small>${FocusCore.parts(record.start).time}–${record.end===FocusCore.stamp(ui.selected,'00:00')+86400000?'24:00':FocusCore.parts(record.end).time} · ${statTime((record.end-record.start)/60000)}</small></div>`;}).join('')||`<p class="note">${t('当天暂无专注记录','No focus records for this day')}</p>`}</div>`,()=>true,t('关闭','Close'));};
  function heatLevel(minutes){return !minutes?0:minutes<60?1:minutes<120?2:minutes<180?3:minutes<240?4:5;}
  function addCalendarHeat(content){
   const totals=FocusCore.dailyActual(data.items,data.focusSessions,Date.now()),year=ui.calendarView==='Year';
@@ -60,18 +76,17 @@
   (content.querySelector('.month-scroll')||content.querySelector('.calendar-stage')).insertAdjacentHTML('beforeend',legend);
  }
  function timetableHTML(){
-  const dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i));
-  return `${weekdaysHTML()}<div class="week-strip timetable-strip">${dates.map(date=>`<button class="day ${date===today()?'today':''}" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}</button>`).join('')}</div><div class="timetable-scroll"><div class="timetable-canvas" style="height:${24*HOUR_HEIGHT}px"><div class="timetable-axis">${Array.from({length:25},(_,hour)=>`<span style="top:${hour*HOUR_HEIGHT}px">${String(hour).padStart(2,'0')}:00</span>`).join('')}</div>${dates.map(date=>{
-   const segments=timedSegments(date);let labelBottom=-1;
-   const columnWidth=(Math.min(innerWidth,480)-43)/7,characters=Math.max(3,Math.floor((columnWidth-13)/8.5));
-   return `<div class="timetable-day" data-date="${date}">${segments.map(({item,start,end})=>{
-    const shadow=item.focusCoveredBy?.length,actual=item.focusActual,title=item.title||t('空白任务','Blank task');
-    const lines=Math.min(3,Math.max(1,Math.ceil(Array.from(title).length/characters))),height=lines*12+30;
-    const trueTop=start/60*HOUR_HEIGHT,top=Math.max(trueTop,labelBottom+3);labelBottom=top+height;
-    return `<i class="timetable-duration" aria-hidden="true" style="top:${trueTop}px;height:${Math.max(2,(end-start)/60*HOUR_HEIGHT)}px;--event-color:${esc(item.color||'#5ba6a0')}"></i><button class="timetable-event ${top>trueTop?'offset-label':''} ${shadow?'plan-shadow':''} ${actual?'focus-actual':''}" data-action="edit" data-id="${esc(item.id)}" aria-label="${esc(title)} ${item.time}–${item.endTime}" style="top:${top}px;height:${height}px;left:5px;width:calc(100% - 7px);--event-color:${esc(item.color||'#5ba6a0')}"><strong>${esc(title)}</strong><small>${esc(item.time)}<br>${esc(item.endTime||'')}</small></button>`;
+  const dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i)),axis=dayAxis(),outside=[];
+  const columns=dates.map(date=>{const all=timedSegments(date);outside.push(...all.filter(({start,end})=>end<=axis.start||start>=axis.end).map(({item})=>item));const segments=all.filter(({start,end})=>end>axis.start&&start<axis.end),shadowed=segments.some(({item})=>item.focusCoveredBy?.length);
+   return `<div class="timetable-day" data-date="${date}">${segments.map(({item,start,end,lane,lanes})=>{
+    const shadow=item.focusCoveredBy?.length,actual=item.focusActual,title=item.title||t('空白任务','Blank task'),top=dayY(Math.max(start,axis.start)),height=dayY(Math.min(end,axis.end))-top;
+    const left=shadow?0:actual&&shadowed?32:lane/lanes*100,width=shadow?30:actual&&shadowed?68:100/lanes;
+    return `<button class="timetable-event ${height<44?'tiny-record':''} ${shadow?'plan-shadow':''} ${actual?'focus-actual':''}" data-action="edit" data-id="${esc(item.id)}" aria-label="${esc(title)} ${item.time}–${item.endTime}" style="top:${top}px;height:${height}px;left:${left}%;width:calc(${width}% - 2px);--label-lines:${Math.max(1,Math.min(3,Math.floor((height-30)/12)))};--event-color:${esc(item.color||'#5ba6a0')}"><strong>${esc(title)}</strong><small>${esc(item.time)}<br>${esc(item.endTime||'')}</small></button>`;
    }).join('')}</div>`;
-  }).join('')}</div></div><p class="timetable-caption">${t('重叠卡片错开显示 · 细线保留实际时段 · 点击日期看当天','Overlaps stack for readability · rails show actual duration · tap date for day')}</p>`;
+  }).join('');
+  return `${weekdaysHTML()}<div class="week-strip timetable-strip">${dates.map(date=>`<button class="day ${date===today()?'today':''}" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}</button>`).join('')}</div><div class="timetable-records">${dates.map(date=>`<button data-action="timetable-records" data-date="${date}" aria-label="${date} ${t('完整记录','All records')}">${timedSegments(date).length}${t('条',' items')}</button>`).join('')}</div>${outside.length?`<div class="outside-hours"><span>${t('时段外安排','Outside daytime hours')}</span>${outside.map(item=>`<button data-action="edit" data-id="${esc(item.id)}">${esc(item.date)} ${esc(item.time)} · ${esc(item.title)}</button>`).join('')}</div>`:''}<div class="timetable-scroll"><div class="timetable-canvas" style="height:${axis.height}px;--axis-hour:${axis.hourHeight}px"><div class="timetable-axis">${Array.from({length:(axis.end-axis.start)/60+1},(_,index)=>{const minute=axis.start+index*60;return `<span style="top:${dayY(minute)}px">${String(minute/60).padStart(2,'0')}:00</span>`;}).join('')}</div>${columns}</div></div><p class="timetable-caption">${t('按真实起止绘制 · 短任务点击上方条数查看完整记录','True time scale · tap record counts for short tasks')}</p>`;
  }
+ actions['timetable-records']=element=>{const date=element.dataset.date,records=timedSegments(date);showDialog(date+' · '+t('完整记录','All records'),`<div class="timeline-record-list">${records.map(({item})=>`<button data-action="edit" data-id="${esc(item.id)}"><strong>${esc(item.title||t('空白任务','Blank task'))}</strong><small>${esc(item.time)}–${esc(item.endTime||'')} · ${item.focusActual?t('实际专注','Actual focus'):t('计划安排','Plan')}</small></button>`).join('')||`<p class="note">${t('当天没有记录','No records for this day')}</p>`}</div>`,()=>true,t('关闭','Close'));};
  ui.focusMode='planned';ui.focusGoal=null;ui.focusPlan=null;
  function currentFocus(){return data.focusSessions.filter(session=>session.status!=='finished').sort((a,b)=>b.startedAt-a.startedAt)[0]||null;}
  function timerText(milliseconds){const seconds=Math.floor(Math.max(0,milliseconds)/1000);return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':');}
@@ -116,7 +131,7 @@
  function refreshFocus(){
   const active=currentFocus();if(!active)return;
   const now=Date.now(),reconciled=FocusCore.reconcile(active,now),changed=reconciled.status!==active.status;
-  if(changed||now-lastFocusCheckpoint>=60000){if(commitSession(reconciled,now)){lastFocusCheckpoint=now;if(changed){render();return;}}}
+  if(changed||now-lastFocusCheckpoint>=60000){if(commitSession(reconciled,now)){lastFocusCheckpoint=now;if(changed||ui.tab==='calendar'&&ui.calendarView==='Dashboard'){const top=scrollY;render();scrollTo(0,top);return;}}}
   const clock=document.querySelector('.focus-clock');if(clock)clock.textContent=timerText(FocusCore.elapsed(reconciled,now));
  }
  setInterval(()=>{if(document.hidden)return;refreshFocus();const start=document.querySelector('[data-action="focus-start"]');if(start)start.disabled=!selectedFocus().ready;},1000);
@@ -137,13 +152,11 @@
    if(item.blank){block.classList.add('blank-range');block.querySelector('.session-check')?.remove();block.querySelector('strong').textContent=t('空白任务 · 点此编辑','Blank task · tap to edit');block.insertAdjacentHTML('beforeend',`<button class="range-handle start" data-action="range-handle" data-resize="start" aria-label="${t('调整开始时间','Resize start')}"></button><button class="range-handle end" data-action="range-handle" data-resize="end" aria-label="${t('调整结束时间','Resize end')}"></button>`);}
   }
   const shadows=template.content.querySelectorAll('.plan-shadow');
-  let labelBottom=-1;
   for(const block of template.content.querySelectorAll('.focus-actual')){
-   const trueTop=parseFloat(block.style.top),trueHeight=parseFloat(block.style.height),labelHeight=Math.max(34,trueHeight),labelTop=Math.max(trueTop,labelBottom+3);labelBottom=labelTop+labelHeight;
    if(shadows.length){block.style.left='33%';block.style.width='calc(67% - 4px)';block.classList.add('covers-plan');}else{block.style.left='6px';block.style.width='calc(100% - 10px)';}
-   if(trueHeight<34||labelTop!==trueTop){block.classList.add('focus-callout');block.style.top=labelTop+'px';block.style.height=labelHeight+'px';const rail=document.createElement('i');rail.className='focus-duration-rail';Object.assign(rail.style,{top:trueTop+'px',height:Math.max(2,trueHeight)+'px',left:shadows.length?'30.5%':'0',background:block.style.getPropertyValue('--event-color')||'#b3cbd0'});template.content.querySelector('.time-blocks').append(rail);}
    block.querySelector('.time-block-main')?.insertAdjacentHTML('afterbegin',`<span class="coverage-caption">${t('实际专注','Actual focus')}</span>`);
   }
+  if(template.content.querySelector('.focus-actual'))template.content.querySelector('.daily-timeline').insertAdjacentHTML('beforebegin',`<button class="day-records-link" data-action="timetable-records" data-date="${ui.selected}">${t('查看当天完整记录','View all daily records')}</button>`);
   template.content.querySelector('.daily-timeline')?.insertAdjacentHTML('beforebegin',`<p class="range-instruction">${t('长按空白处新建 · 拖动上下手柄调时 · 15 分钟吸附','Hold empty space to create · drag handles · snaps to 15 min')}</p>`);
   return template.innerHTML;
  };
@@ -197,17 +210,17 @@
  document.addEventListener('pointercancel',cancelRange,true);
  document.addEventListener('touchmove',event=>{if(rangePress?.drag){event.preventDefault();event.stopPropagation();}},{capture:true,passive:false});
  document.addEventListener('contextmenu',event=>{if(event.target.closest('.blank-range'))event.preventDefault();});
- const editCalendarItem=actions.edit;actions.edit=element=>{const item=data.items.find(record=>record.id===element.dataset.id);if(item?.focusActual){showDialog(t('实际专注记录','Actual focus'),`<p>${esc(item.title)}</p><p class="note">${esc(item.date)} ${esc(item.time)}–${esc(item.endTime)}<br>${timerText(item.actualEndAt-item.actualStartAt)} · ${t('已计入目标投入；暂停时间已排除','Credited to goal; paused time excluded')}</p>`,()=>true,t('知道了','OK'));}else editCalendarItem(element);};
+ const editCalendarItem=actions.edit;actions.edit=element=>{if(element.closest?.('.timeline-record-list'))modal=null;const item=data.items.find(record=>record.id===element.dataset.id);if(item?.focusActual){showDialog(t('实际专注记录','Actual focus'),`<p>${esc(item.title)}</p><p class="note">${esc(item.date)} ${esc(item.time)}–${esc(item.endTime)}<br>${timerText(item.actualEndAt-item.actualStartAt)} · ${t('已计入目标投入；暂停时间已排除','Credited to goal; paused time excluded')}</p>`,()=>true,t('知道了','OK'));}else editCalendarItem(element);};
  const previousSettings=settingsHTML;
  settingsHTML=()=>{
-  const html=previousSettings().replaceAll('1.3.0','1.5.1');if(panel.sub!=='root')return html;
+  const html=previousSettings().replaceAll('1.3.0','1.6.0');if(panel.sub!=='root')return html;
   const density=`<div class="setting-card"><label class="row"><span class="label">${t('日视图默认模式','Daytime view')}<small>${t('06:00–23:00 · 总高度不变，每小时空间增加约41%','06:00–23:00 · same canvas, 41% more room per hour')}</small></span><input type="checkbox" class="toggle" data-setting="daytimeOnly" ${data.settings.daytimeOnly!==false?'checked':''}></label></div><div class="setting-card"><label class="row"><span class="label">${t('目标卡片疏密','Goal card density')}<small>${t('调整卡片高度，字号保持不变','Adjust card height without changing text size')}</small></span><select id="card-density" aria-label="${t('目标卡片疏密','Goal card density')}">${Object.entries(cardDensities).map(([key,label])=>`<option value="${key}" ${key===(data.settings.cardDensity||'compact')?'selected':''}>${t(...label)}</option>`).join('')}</select></label></div>`;
   return html.replace('<div class="section-caption">',density+`<div class="background-choices"><div class="field-caption">${t('日历背景 · 日 / 周 / 月通用','Calendar background · all views')}</div><div>${Object.entries(themes).map(([key,label])=>`<button data-action="background-pick" data-theme="${key}" aria-pressed="${data.settings.calendarBackground===key}"><img src="background-${key}.jpg" alt="" loading="lazy"><span>${t(...label)}</span></button>`).join('')}</div><p class="background-credit">${t('自然摄影来自 Unsplash，已随应用离线打包','Nature photography from Unsplash; available offline')}</p></div><div class="section-caption">`).replace(t('月视图玻璃背景','Glass calendar background'),t('日历透明背景','Glass calendar background'));
  };
  document.addEventListener('change',event=>{if(event.target.dataset.setting==='daytimeOnly')render();if(event.target.id==='card-density'&&Object.hasOwn(cardDensities,event.target.value)){data.settings.cardDensity=event.target.value;persist();render();}});
  actions['background-pick']=element=>{if(Object.hasOwn(themes,element.dataset.theme)){data.settings.calendarBackground=element.dataset.theme;persist();render();}};
  const repaint=render;
- render=function(){document.documentElement.dataset.cardDensity=Object.hasOwn(cardDensities,data.settings.cardDensity)?data.settings.cardDensity:'compact';const oldWeekly=document.querySelector('#app > .screen .timetable-scroll'),weeklyScroll=oldWeekly?.scrollTop;repaint();const weekly=document.querySelector('#app > .screen .timetable-scroll');if(weekly)weekly.scrollTop=weeklyScroll??8*HOUR_HEIGHT;const screen=document.querySelector('#app > .screen');if(screen){screen.dataset.background=data.settings.calendarBackground;if(ui.tab==='todos')screen.classList.add('task-list-screen');}const goal=data.items.find(item=>item.id===(currentFocus()?.goalId||selectedFocus().goal?.id));if(goal?.parentId)document.querySelector('.focus-timer h2')?.insertAdjacentHTML('afterend',`<p class="focus-origin">${esc(goalPath(goal))}</p>`);enhanceChoices();};
+ render=function(){document.documentElement.dataset.cardDensity=Object.hasOwn(cardDensities,data.settings.cardDensity)?data.settings.cardDensity:'compact';const oldWeekly=document.querySelector('#app > .screen .timetable-scroll'),weeklyScroll=oldWeekly?.scrollTop;repaint();const weekly=document.querySelector('#app > .screen .timetable-scroll');if(weekly)weekly.scrollTop=weeklyScroll??Math.max(0,dayY(480));const screen=document.querySelector('#app > .screen');if(screen){screen.dataset.background=data.settings.calendarBackground;if(ui.tab==='todos')screen.classList.add('task-list-screen');}const goal=data.items.find(item=>item.id===(currentFocus()?.goalId||selectedFocus().goal?.id));if(goal?.parentId)document.querySelector('.focus-timer h2')?.insertAdjacentHTML('afterend',`<p class="focus-origin">${esc(goalPath(goal))}</p>`);enhanceChoices();};
  // Native <dialog> supplies focus containment, Escape behavior and top-layer stacking.
  // Every select keeps its original value/change contract; only its presentation changes.
  let choiceState=null;
@@ -262,7 +275,8 @@
    const option=event.target.closest('[data-choice-value]');if(option){const value=option.dataset.choiceValue;closeChoice();select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));enhanceChoices();}
   });
  }
- const overlayChoices=renderOverlay;renderOverlay=function(){overlayChoices();enhanceChoices();};
+ const overlayChoices=renderOverlay;renderOverlay=function(){overlayChoices();if(menu==='view'&&ui.tab==='calendar')document.querySelector('#overlay > .menu')?.insertAdjacentHTML('beforeend',menuItem('dashboard',t('数据板','Data board'),'grid','',ui.calendarView==='Dashboard'));enhanceChoices();};
+ const renderWithStatistics=render;render=function(){renderWithStatistics();if(ui.tab==='calendar'&&ui.calendarView==='Dashboard'){const title=document.querySelector('#app > .screen .month-title');if(title)title.innerHTML=t('数据板','Data board')+`<small>${ui.selected}</small>`;}};
  document.addEventListener('keydown',event=>{if(choiceState&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeChoice();}},true);
  const backBeforeChoices=window.handleNativeBack;window.handleNativeBack=()=>{if(choiceState){closeChoice();return true;}return backBeforeChoices();};
  initializeNative();refreshFocus();render();

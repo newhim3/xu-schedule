@@ -41,8 +41,8 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   await page.evaluate(()=>{ui.calendarView='Timetable';render();document.querySelector('.timetable-scroll').scrollTop=9*44;});
   const weekCards=page.locator('.timetable-day[data-date="2026-10-18"] .timetable-event');
   const rects=await weekCards.evaluateAll(elements=>elements.map(e=>({id:e.dataset.id,top:parseFloat(e.style.top),height:parseFloat(e.style.height),width:e.getBoundingClientRect().width,day:e.parentElement.getBoundingClientRect().width})));
-  for(let i=0;i<rects.length;i++){assert(rects[i].width>rects[i].day*.8,'Overlapping cards retain the full day width');if(i)assert(rects[i].top>=rects[i-1].top+rects[i-1].height,'Weekly labels never cover each other');}
-  assert.equal(await page.locator('.timetable-duration').count(),await page.locator('.timetable-event').count(),'Exact duration rail retained for every displaced label');
+  for(const rect of rects){assert(rect.width>8,'Overlapping records keep a visible time lane');assert(rect.top>=0&&rect.top+rect.height<=1056+.1,'No enlarged weekly label may escape the real axis');}
+  assert(await page.locator('.timetable-event[data-id="main"]').evaluate(e=>Math.abs(parseFloat(e.style.top)-dayY(600))<.1),'Weekly task starts exactly at its real time');assert.equal(await page.locator('[data-action="timetable-records"]').count(),7,'Every date offers a readable complete record list');
   await page.screenshot({path:'reference-analysis/v1.5.1-timetable.png'});
   const backup=await page.evaluate(()=>GoalCore.mergeBackup({items:[],settings:{}},{version:3,items:data.items,settings:data.settings}).settings);assert.equal(backup.daytimeOnly,true);
   await page.evaluate(()=>{ui.calendarView='Month';render();});await page.screenshot({path:'reference-analysis/v1.5.1-month.png'});

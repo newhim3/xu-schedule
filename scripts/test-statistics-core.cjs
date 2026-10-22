@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict'),F=require('../replica/focus-core.js');
+assert.equal(typeof F.statistics,'function','Data board needs real focus statistics');
+const at=(date,time)=>F.stamp(date,time),now=at('2026-10-22','12:00');
+const a=F.finish(F.start({id:'a',goalId:'math'},at('2026-10-22','09:00')),at('2026-10-22','10:00'));
+const b=F.finish(F.start({id:'b',goalId:'english'},at('2026-10-22','09:30')),at('2026-10-22','10:30'));
+const night=F.finish(F.start({id:'night',goalId:'math'},at('2026-10-21','23:30')),at('2026-10-22','00:30'));
+const items=F.project(F.project(F.project([{id:'math',kind:'todo',title:'数学'},{id:'english',kind:'todo',parentId:'math',title:'作业'}],a),b),night);
+const result=F.statistics(items,[a,b,night],'2026-10-22',now);
+assert.equal(result.minutes,120,'Daily total splits midnight and unions overlapping intervals');assert.equal(result.count,3,'One session counts once regardless of its segments');
+assert.equal(result.goals.reduce((sum,g)=>sum+g.minutes,0),result.minutes,'Pie totals never double count overlaps');
+assert.equal(result.goals.find(g=>g.goalId==='math').minutes,60);assert.equal(result.goals.find(g=>g.goalId==='english').minutes,60,'Newer actual goal takes precedence during overlap');
+assert.equal(result.hourly.reduce((sum,n)=>sum+n,0),120);assert.equal(result.totalMinutes,150);assert.equal(result.totalCount,3);assert.equal(result.daily['2026-10-21'],30);
+assert.equal(F.statistics(items,[],'2026-10-22',now).minutes,120,'Legacy projected records work without their session objects');
+const paused=F.pause(F.start({id:'p',goalId:'math'},at('2026-10-22','11:00')),at('2026-10-22','11:10'));
+assert.equal(F.statistics(items,[a,b,night,paused],'2026-10-22',now).minutes,130,'Paused minutes are excluded');
+assert.equal(F.statistics([],[],'2026-10-22',now).count,0,'Empty day is truly zero');
+console.log('PASS statistics: unique sessions, midnight, pauses, live elapsed, overlap ownership, daily/hourly/goal/cumulative totals and legacy records');
