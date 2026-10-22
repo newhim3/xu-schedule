@@ -38,6 +38,12 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   const blank=page.locator('.blank-range');await blank.waitFor();assert.equal(await page.evaluate(()=>data.items.find(x=>x.blank).time),'16:00','Long press uses expanded axis');
   const handle=await blank.locator('[data-resize="end"]').boundingBox();await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);await page.mouse.down();await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2+geometry.hour,{steps:8});await page.mouse.up();
   assert.equal(await page.evaluate(()=>data.items.find(x=>x.blank).endTime),'18:00','One expanded hour drag equals one hour');
+  await page.evaluate(()=>{ui.calendarView='Timetable';render();document.querySelector('.timetable-scroll').scrollTop=9*44;});
+  const weekCards=page.locator('.timetable-day[data-date="2026-10-18"] .timetable-event');
+  const rects=await weekCards.evaluateAll(elements=>elements.map(e=>({id:e.dataset.id,top:parseFloat(e.style.top),height:parseFloat(e.style.height),width:e.getBoundingClientRect().width,day:e.parentElement.getBoundingClientRect().width})));
+  for(let i=0;i<rects.length;i++){assert(rects[i].width>rects[i].day*.8,'Overlapping cards retain the full day width');if(i)assert(rects[i].top>=rects[i-1].top+rects[i-1].height,'Weekly labels never cover each other');}
+  assert.equal(await page.locator('.timetable-duration').count(),await page.locator('.timetable-event').count(),'Exact duration rail retained for every displaced label');
+  await page.screenshot({path:'reference-analysis/v1.5.1-timetable.png'});
   const backup=await page.evaluate(()=>GoalCore.mergeBackup({items:[],settings:{}},{version:3,items:data.items,settings:data.settings}).settings);assert.equal(backup.daytimeOnly,true);
   await page.evaluate(()=>{ui.calendarView='Month';render();});await page.screenshot({path:'reference-analysis/v1.5.1-month.png'});
   assert(await page.locator('.month-event-label').first().evaluate(e=>parseFloat(getComputedStyle(e).fontSize)<=9));

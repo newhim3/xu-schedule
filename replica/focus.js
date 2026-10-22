@@ -62,11 +62,15 @@
  function timetableHTML(){
   const dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i));
   return `${weekdaysHTML()}<div class="week-strip timetable-strip">${dates.map(date=>`<button class="day ${date===today()?'today':''}" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}</button>`).join('')}</div><div class="timetable-scroll"><div class="timetable-canvas" style="height:${24*HOUR_HEIGHT}px"><div class="timetable-axis">${Array.from({length:25},(_,hour)=>`<span style="top:${hour*HOUR_HEIGHT}px">${String(hour).padStart(2,'0')}:00</span>`).join('')}</div>${dates.map(date=>{
-   const segments=timedSegments(date),hasShadow=segments.some(({item})=>item.focusCoveredBy?.length);
-   return `<div class="timetable-day" data-date="${date}">${segments.map(({item,start,end,lane,lanes})=>{const shadow=item.focusCoveredBy?.length,actual=item.focusActual,left=shadow?0:actual&&hasShadow?33:lane/lanes*100,width=shadow?30:actual&&hasShadow?67:100/lanes;
-    return `<button class="timetable-event ${shadow?'plan-shadow':''} ${actual?'focus-actual':''}" data-action="edit" data-id="${esc(item.id)}" aria-label="${esc(item.title||t('空白任务','Blank task'))} ${item.time}–${item.endTime}" style="top:${start/60*HOUR_HEIGHT}px;height:${Math.max(15,(end-start)/60*HOUR_HEIGHT)}px;left:${left}%;width:calc(${width}% - 2px);--event-color:${esc(item.color||'#5ba6a0')}"><strong>${esc(item.title||t('空白任务','Blank task'))}</strong><small>${esc(item.time)}</small></button>`;
+   const segments=timedSegments(date);let labelBottom=-1;
+   const columnWidth=(Math.min(innerWidth,480)-43)/7,characters=Math.max(3,Math.floor((columnWidth-13)/8.5));
+   return `<div class="timetable-day" data-date="${date}">${segments.map(({item,start,end})=>{
+    const shadow=item.focusCoveredBy?.length,actual=item.focusActual,title=item.title||t('空白任务','Blank task');
+    const lines=Math.min(3,Math.max(1,Math.ceil(Array.from(title).length/characters))),height=lines*12+30;
+    const trueTop=start/60*HOUR_HEIGHT,top=Math.max(trueTop,labelBottom+3);labelBottom=top+height;
+    return `<i class="timetable-duration" aria-hidden="true" style="top:${trueTop}px;height:${Math.max(2,(end-start)/60*HOUR_HEIGHT)}px;--event-color:${esc(item.color||'#5ba6a0')}"></i><button class="timetable-event ${top>trueTop?'offset-label':''} ${shadow?'plan-shadow':''} ${actual?'focus-actual':''}" data-action="edit" data-id="${esc(item.id)}" aria-label="${esc(title)} ${item.time}–${item.endTime}" style="top:${top}px;height:${height}px;left:5px;width:calc(100% - 7px);--event-color:${esc(item.color||'#5ba6a0')}"><strong>${esc(title)}</strong><small>${esc(item.time)}<br>${esc(item.endTime||'')}</small></button>`;
    }).join('')}</div>`;
-  }).join('')}</div></div><p class="timetable-caption">${t('一周总览 · 点击日期进入当天时间轴','Week overview · tap a date for its daily timeline')}</p>`;
+  }).join('')}</div></div><p class="timetable-caption">${t('重叠卡片错开显示 · 细线保留实际时段 · 点击日期看当天','Overlaps stack for readability · rails show actual duration · tap date for day')}</p>`;
  }
  ui.focusMode='planned';ui.focusGoal=null;ui.focusPlan=null;
  function currentFocus(){return data.focusSessions.filter(session=>session.status!=='finished').sort((a,b)=>b.startedAt-a.startedAt)[0]||null;}
