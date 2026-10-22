@@ -159,6 +159,11 @@ actions['check-update']=()=>{if(window.AndroidBridge?.checkForUpdate)AndroidBrid
 // Preserve overlay surfaces so edits do not restart their entrance animation.
 const renderOverlayContent=renderOverlay;
 const navigationHistory=new Map();
+function restorePageScroll(page,scroll){
+ page.scrollTop=scroll;
+ // Restore after synchronous select enhancements finish resizing the retained page.
+ queueMicrotask(()=>{if(page.isConnected&&!page.inert)page.scrollTop=scroll;});
+}
 renderOverlay=function(){
  const oldPage=$('#overlay > .page:not(.navigation-outgoing)'),oldKey=previousPanelKey;
  const oldPageScroll=oldPage?.scrollTop||0;
@@ -171,7 +176,7 @@ renderOverlay=function(){
  let nextPage=$('.page');
  if(oldPage&&nextPage&&oldKey===previousPanelKey){
   oldPage.replaceChildren(...nextPage.childNodes);nextPage.replaceWith(oldPage);
-  nextPage=oldPage;nextPage.scrollTop=oldPageScroll;
+  nextPage=oldPage;restorePageScroll(nextPage,oldPageScroll);
   if(panel?.type==='editor')bindEditor();
  }else if(oldPage||nextPage){
   const goingBack=!!nextPage&&navigationHistory.has(newKey);
@@ -193,7 +198,7 @@ renderOverlay=function(){
    if(cached){
     cached.node.replaceChildren(...nextPage.childNodes);nextPage.replaceWith(cached.node);nextPage=cached.node;
     nextPage.classList.remove('navigation-outgoing');nextPage.inert=false;nextPage.removeAttribute('aria-hidden');
-    nextPage.scrollTop=cached.scroll;
+    restorePageScroll(nextPage,cached.scroll);
    }
    Object.assign(nextPage.style,{animation:'none',zIndex:goingBack?'25':'27',transform:goingBack?covered:offscreen,opacity:'1'});
    settleSurface(nextPage,{transform:rest,opacity:'1'},280);

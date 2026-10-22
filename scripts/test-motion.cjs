@@ -35,6 +35,7 @@ const assert=require('node:assert/strict');
   await page.locator('[data-action="settings"]').click();
   await page.waitForTimeout(320);
   await page.evaluate(()=>{window.settingsSurface=document.querySelector('.page');settingsSurface.scrollTop=120;window.settingsScroll=settingsSurface.scrollTop;document.querySelector('[data-sub="reminder-type"]').click();});
+  assert(await page.evaluate(()=>settingsScroll>0),'Exercise a genuinely scrolled settings page');
   assert.equal(await page.locator('.page.navigation-outgoing').count(),1,'Parent page must remain behind pushed page');
   assert(await page.evaluate(()=>document.querySelector('.page:not(.navigation-outgoing)').getAnimations().length>0),'Child must slide over its retained parent');
   await page.waitForTimeout(90);
