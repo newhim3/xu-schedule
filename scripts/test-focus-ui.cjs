@@ -6,7 +6,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
   browser=await chromium.launch({channel:process.env.CI?undefined:'msedge',headless:true});const page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.clock.setFixedTime(new Date('2026-10-18T04:00:00Z'));await page.goto(`http://127.0.0.1:${server.address().port}`);
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.clock.setFixedTime(new Date('2026-10-18T04:00:00Z'));await page.goto(`http://127.0.0.1:${server.address().port}`);await page.evaluate(()=>{data.settings.daytimeOnly=false;persist();render();});
   assert.deepEqual(await page.locator('.dock [data-tab]').allTextContents(),['日历','专注','任务清单','感悟'],'Four navigation tabs have the requested order');
   await page.locator('[data-action="new"]').click();await page.locator('#title').fill('截止日期测试');
   assert.equal(await page.locator('[data-draft="deadlineDate"]').count(),1,'Deadline is editable and optional');

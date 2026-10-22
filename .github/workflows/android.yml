@@ -51,6 +51,7 @@ jobs:
       - run: node scripts/test-choices-ui.cjs
       - run: node scripts/test-heatmap-ui.cjs
       - run: node scripts/test-card-density.cjs
+      - run: node scripts/test-daytime.cjs
       - run: node scripts/test-goal-ui.cjs
       - run: node scripts/test-planner.cjs
       - run: node scripts/test-refinements.cjs

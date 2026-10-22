@@ -18,6 +18,6 @@ if(!Array.isArray(webAssets)||!webAssets.every(name=>/^[a-z0-9][a-z0-9.-]*$/.tes
 paths.push(...webAssets.map(p=>'replica/'+p));
 const source=crypto.createHash('sha256');
 for(const p of paths.sort()){source.update(p);source.update('\0');source.update(p.endsWith('.jpg')?fs.readFileSync(p):fs.readFileSync(p,'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n'));source.update('\0');}
-const meta={versionCode,versionName,sha256:crypto.createHash('sha256').update(fs.readFileSync('release-artifacts/xu-schedule.apk')).digest('hex'),certificateSha256:previous.certificateSha256,releaseNotes:'月、年视图在原有排版上叠加实际专注热度：不增加框格、不显示时长数字，保留任务条、连续月份和日期跳转。暂停与未来计划不计入热度，跨午夜分别累计，专注记录不重复统计。目标卡片改为横向利用空间，减少高度，保留所属主目标、DDL、批注和投入进度；设置新增紧凑、适中、宽松三档卡片疏密，完整备份保留此设置。保留既有专注、课表总览、手势、摄影背景与自动/手动更新。',sourceHash:source.digest('hex'),validationRunId,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};
+const meta={versionCode,versionName,sha256:crypto.createHash('sha256').update(fs.readFileSync('release-artifacts/xu-schedule.apk')).digest('hex'),certificateSha256:previous.certificateSha256,releaseNotes:'日视图默认有效时段改为06:00–23:00，保留原24小时画布总高度，每小时显示空间增加约41%；可在设置关闭并恢复全天。时段外与跨时段安排保留可点击提示；当前时间线、长按新建、15分钟吸附及拖动调时同步使用新比例。日、周、月视图缩小字体、拓宽可用空间；日程文字与勾选按钮分列，避免互相遮挡。保留专注、目标、热度、备份及自动更新。',sourceHash:source.digest('hex'),validationRunId,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};
 fs.writeFileSync(metadataPath,JSON.stringify(meta,null,2)+'\n');
 console.log(JSON.stringify(meta,null,2));

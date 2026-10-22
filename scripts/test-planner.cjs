@@ -10,6 +10,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.clock.setFixedTime(new Date('2026-10-17T07:00:00Z'));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await page.evaluate(()=>{data.settings.daytimeOnly=false;persist();render();});
   const click=action=>page.locator(`[data-action="${action}"]`).first().click();
   assert.equal(await page.locator('[data-todo-filter]').count(),3,'Only All, pending and completed filters remain');
   await click('new');await page.locator('#title').fill('论文准备');

@@ -4,6 +4,7 @@
  const themes={lake:['雾湖','Misty lake'],dunes:['沙丘','Quiet dunes'],water:['静水','Still water']};
  const cardDensities={compact:['紧凑','Compact'],standard:['适中','Standard'],relaxed:['宽松','Roomy']};
  function goalPath(goal,includeSelf=true){const parts=[],seen=new Set();let current=includeSelf?goal:data.items.find(item=>item.id===goal?.parentId);while(current&&!seen.has(current.id)){seen.add(current.id);parts.unshift(current.title);current=data.items.find(item=>item.id===current.parentId);}return parts.join(' › ');}
+ data.settings.daytimeOnly=data.settings.daytimeOnly!==false;
  data.focusSessions=Array.isArray(data.focusSessions)?data.focusSessions:[];
  data.settings.calendarBackground=Object.hasOwn(themes,data.settings.calendarBackground)?data.settings.calendarBackground:'lake';
  dockHTML=()=>`<nav class="dock planner-dock focus-dock" aria-label="${t('主导航','Main navigation')}">${btn(['focus','insights'].includes(ui.tab)?'settings':'view-menu',t('视图与设置','Views and settings'),ui.tab==='todos'?'sort':['focus','insights'].includes(ui.tab)?'settings':'grid','','round')}<div class="switcher">${[['calendar',t('日历','Calendar')],['focus',t('专注','Focus')],['todos',t('任务清单','Tasks')],['insights',t('感悟','Insights')]].map(([tab,label])=>`<button data-action="tab" data-tab="${tab}" class="${ui.tab===tab?'active':''}">${label}</button>`).join('')}</div>${btn('new',t('新建或选择','Create or select'),'plus','','round')}</nav>`;
@@ -144,13 +145,13 @@
  };
  let rangePress=null;
  const minuteText=minute=>String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
- function rangeValue(canvas,y){return FocusCore.snap((y-canvas.getBoundingClientRect().top)/HOUR_HEIGHT*60);}
+ function rangeValue(canvas,y){return FocusCore.snap(dayMinute(y-canvas.getBoundingClientRect().top));}
  function rangeTimes(date,start,end){return {date,time:minuteText(start),endDate:end===1440?addDays(date,1):date,endTime:end===1440?'00:00':minuteText(end)};}
  function cancelRange(){if(!rangePress)return;clearTimeout(rangePress.timer);rangePress.drag?.preview.remove();rangePress.drag?.label.remove();if(rangePress.block)rangePress.block.style.opacity='';rangePress=null;}
  function beginRangeDrag(press,type){
   const item=data.items.find(record=>record.id===press.id);if(!item)return;calendarGesture=null;
   const start=minuteOf(item.time),end=item.endDate>item.date?1440:minuteOf(item.endTime),preview=document.createElement('div'),label=document.createElement('div');
-  preview.className='range-preview';Object.assign(preview.style,{top:start/60*HOUR_HEIGHT+'px',height:(end-start)/60*HOUR_HEIGHT+'px'});label.className='range-live-label';
+  preview.className='range-preview';Object.assign(preview.style,{top:dayY(start)+'px',height:(end-start)/60*dayAxis().hourHeight+'px'});label.className='range-live-label';
   press.canvas.querySelector('.time-blocks').append(preview,label);press.drag={type,start,end,nextStart:start,nextEnd:end,preview,label};press.block.style.opacity='.3';press.canvas.setPointerCapture?.(press.pointerId);
  }
  actions['range-handle']=()=>{};
@@ -167,7 +168,7 @@
    if(rangePress!==press)return;press.long=true;calendarGesture=null;suppressCalendarClickUntil=performance.now()+1000;
    if(blank){showDialog(t('删除空白任务？','Delete blank task?'),`<p class="note">${t('删除这个尚未填写的时间段。','Remove this unfilled time range.')}</p>`,()=>{const previous=data.items;data.items=previous.filter(item=>item.id!==press.id);if(!persist()){data.items=previous;return false;}render();return true;},t('删除','Delete'),true);}
    else{
-    const start=Math.min(1380,rangeValue(canvas,press.y)),item={id:uid(),kind:'event',taskBlock:true,blank:true,title:'',...rangeTimes(press.date,start,start+60),calendar:'Default',color:'#879fac',importance:0,done:false,repeat:'Once',reminder:'None',notes:''};
+    const start=Math.min(dayAxis().end-60,rangeValue(canvas,press.y)),item={id:uid(),kind:'event',taskBlock:true,blank:true,title:'',...rangeTimes(press.date,start,start+60),calendar:'Default',color:'#879fac',importance:0,done:false,repeat:'Once',reminder:'None',notes:''};
     data.items.push(item);if(persist())render();else data.items.pop();
    }
   },450);
@@ -178,11 +179,11 @@
   if(!press.drag&&distance>8){clearTimeout(press.timer);if(press.blank)beginRangeDrag(press,'move');else{cancelRange();return;}}
   if(!press.drag)return;event.preventDefault();event.stopPropagation();const drag=press.drag;
   const minute=rangeValue(press.canvas,event.clientY);
-  if(drag.type==='start'){drag.nextStart=Math.min(drag.end-15,minute);}
-  else if(drag.type==='end'){drag.nextEnd=Math.max(drag.start+15,minute);}
-  else{const delta=FocusCore.snap(Math.max(0,(event.clientY-press.canvas.getBoundingClientRect().top)/HOUR_HEIGHT*60))-FocusCore.snap((press.y-press.canvas.getBoundingClientRect().top)/HOUR_HEIGHT*60);const duration=drag.end-drag.start;drag.nextStart=Math.max(0,Math.min(1440-duration,drag.start+delta));drag.nextEnd=drag.nextStart+duration;}
-  drag.preview.style.transform=`translateY(${(drag.nextStart-drag.start)/60*HOUR_HEIGHT}px) scaleY(${(drag.nextEnd-drag.nextStart)/(drag.end-drag.start)})`;
-  drag.label.style.transform=`translateY(${Math.max(0,drag.nextStart/60*HOUR_HEIGHT-24)}px)`;drag.label.textContent=minuteText(drag.nextStart)+'–'+minuteText(drag.nextEnd);
+  if(drag.type==='start'){drag.nextStart=Math.max(dayAxis().start,Math.min(drag.end-15,minute));}
+  else if(drag.type==='end'){drag.nextEnd=Math.min(dayAxis().end,Math.max(drag.start+15,minute));}
+  else{const delta=rangeValue(press.canvas,event.clientY)-rangeValue(press.canvas,press.y);const duration=drag.end-drag.start;drag.nextStart=Math.max(dayAxis().start,Math.min(dayAxis().end-duration,drag.start+delta));drag.nextEnd=drag.nextStart+duration;}
+  drag.preview.style.transform=`translateY(${(drag.nextStart-drag.start)/60*dayAxis().hourHeight}px) scaleY(${(drag.nextEnd-drag.nextStart)/(drag.end-drag.start)})`;
+  drag.label.style.transform=`translateY(${Math.max(0,dayY(drag.nextStart)-24)}px)`;drag.label.textContent=minuteText(drag.nextStart)+'–'+minuteText(drag.nextEnd);
  },true);
  document.addEventListener('pointerup',event=>{
   const press=rangePress;if(!press||event.pointerId!==press.pointerId)return;
@@ -195,11 +196,11 @@
  const editCalendarItem=actions.edit;actions.edit=element=>{const item=data.items.find(record=>record.id===element.dataset.id);if(item?.focusActual){showDialog(t('实际专注记录','Actual focus'),`<p>${esc(item.title)}</p><p class="note">${esc(item.date)} ${esc(item.time)}–${esc(item.endTime)}<br>${timerText(item.actualEndAt-item.actualStartAt)} · ${t('已计入目标投入；暂停时间已排除','Credited to goal; paused time excluded')}</p>`,()=>true,t('知道了','OK'));}else editCalendarItem(element);};
  const previousSettings=settingsHTML;
  settingsHTML=()=>{
-  const html=previousSettings().replaceAll('1.3.0','1.5.0');if(panel.sub!=='root')return html;
-  const density=`<div class="setting-card"><label class="row"><span class="label">${t('目标卡片疏密','Goal card density')}<small>${t('调整卡片高度，字号保持不变','Adjust card height without changing text size')}</small></span><select id="card-density" aria-label="${t('目标卡片疏密','Goal card density')}">${Object.entries(cardDensities).map(([key,label])=>`<option value="${key}" ${key===(data.settings.cardDensity||'compact')?'selected':''}>${t(...label)}</option>`).join('')}</select></label></div>`;
+  const html=previousSettings().replaceAll('1.3.0','1.5.1');if(panel.sub!=='root')return html;
+  const density=`<div class="setting-card"><label class="row"><span class="label">${t('日视图默认模式','Daytime view')}<small>${t('06:00–23:00 · 总高度不变，每小时空间增加约41%','06:00–23:00 · same canvas, 41% more room per hour')}</small></span><input type="checkbox" class="toggle" data-setting="daytimeOnly" ${data.settings.daytimeOnly!==false?'checked':''}></label></div><div class="setting-card"><label class="row"><span class="label">${t('目标卡片疏密','Goal card density')}<small>${t('调整卡片高度，字号保持不变','Adjust card height without changing text size')}</small></span><select id="card-density" aria-label="${t('目标卡片疏密','Goal card density')}">${Object.entries(cardDensities).map(([key,label])=>`<option value="${key}" ${key===(data.settings.cardDensity||'compact')?'selected':''}>${t(...label)}</option>`).join('')}</select></label></div>`;
   return html.replace('<div class="section-caption">',density+`<div class="background-choices"><div class="field-caption">${t('日历背景 · 日 / 周 / 月通用','Calendar background · all views')}</div><div>${Object.entries(themes).map(([key,label])=>`<button data-action="background-pick" data-theme="${key}" aria-pressed="${data.settings.calendarBackground===key}"><img src="background-${key}.jpg" alt="" loading="lazy"><span>${t(...label)}</span></button>`).join('')}</div><p class="background-credit">${t('自然摄影来自 Unsplash，已随应用离线打包','Nature photography from Unsplash; available offline')}</p></div><div class="section-caption">`).replace(t('月视图玻璃背景','Glass calendar background'),t('日历透明背景','Glass calendar background'));
  };
- document.addEventListener('change',event=>{if(event.target.id==='card-density'&&Object.hasOwn(cardDensities,event.target.value)){data.settings.cardDensity=event.target.value;persist();render();}});
+ document.addEventListener('change',event=>{if(event.target.dataset.setting==='daytimeOnly')render();if(event.target.id==='card-density'&&Object.hasOwn(cardDensities,event.target.value)){data.settings.cardDensity=event.target.value;persist();render();}});
  actions['background-pick']=element=>{if(Object.hasOwn(themes,element.dataset.theme)){data.settings.calendarBackground=element.dataset.theme;persist();render();}};
  const repaint=render;
  render=function(){document.documentElement.dataset.cardDensity=Object.hasOwn(cardDensities,data.settings.cardDensity)?data.settings.cardDensity:'compact';const oldWeekly=document.querySelector('#app > .screen .timetable-scroll'),weeklyScroll=oldWeekly?.scrollTop;repaint();const weekly=document.querySelector('#app > .screen .timetable-scroll');if(weekly)weekly.scrollTop=weeklyScroll??8*HOUR_HEIGHT;const screen=document.querySelector('#app > .screen');if(screen){screen.dataset.background=data.settings.calendarBackground;if(ui.tab==='todos')screen.classList.add('task-list-screen');}const goal=data.items.find(item=>item.id===(currentFocus()?.goalId||selectedFocus().goal?.id));if(goal?.parentId)document.querySelector('.focus-timer h2')?.insertAdjacentHTML('afterend',`<p class="focus-origin">${esc(goalPath(goal))}</p>`);enhanceChoices();};

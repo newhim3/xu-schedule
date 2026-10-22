@@ -244,6 +244,10 @@ settingsHTML=()=>settingsContent().replaceAll('1.1.0','1.2.1');
 // Calendar levels share the same dates and event model, with today independent of selection.
 ui.calendarView='Week';ui.year=Number(ui.month.slice(0,4));
 const HOUR_HEIGHT=44;
+// The day keeps its original 1056px canvas; only its visible time range changes.
+function dayAxis(){const compact=data.settings.daytimeOnly!==false;return {start:compact?360:0,end:compact?1380:1440,hourHeight:24*HOUR_HEIGHT/(compact?17:24),height:24*HOUR_HEIGHT};}
+function dayY(minute){const axis=dayAxis();return (minute-axis.start)/60*axis.hourHeight;}
+function dayMinute(y){const axis=dayAxis();return Math.max(axis.start,Math.min(axis.end,axis.start+y/axis.hourHeight*60));}
 const calendarLevels=['Week','Timetable','Month','Year'];
 let calendarMotion=null,calendarGesture=null,suppressCalendarClickUntil=0;
 function weekStart(date){return addDays(date,-((parseDate(date).getDay()-data.settings.weekStart+7)%7));}
@@ -287,11 +291,13 @@ function timedSegments(date){
  return segments;
 }
 function weekHTML(){
- const dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i));
+ const axis=dayAxis(),dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i));
  const allDay=eventsForDay(ui.selected).filter(item=>item.allDay||minuteOf(item.time)===null);
+ const segments=timedSegments(ui.selected),outside=segments.filter(segment=>segment.start<axis.start||segment.end>axis.end);
+ const clock=minute=>String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
  const now=Number(parts.find(p=>p.type==='hour').value)*60+Number(parts.find(p=>p.type==='minute').value);
- return `${weekdaysHTML()}<div class="week-strip" id="calendar-grid">${dates.map(date=>`<button class="day ${date===ui.selected?'selected':''} ${date===today()?'today':''}" data-action="day" data-date="${date}" aria-label="${date}" aria-pressed="${date===ui.selected}">${dayNumber(date)}<span class="lunar">${lunarLabel(date)}</span>${eventsForDay(date).length?'<span class="dot"></span>':'<span class="no-dot"></span>'}</button>`).join('')}</div>${allDay.length?`<div class="all-day-items"><span>全天</span><div>${allDay.map(item=>`<button data-action="edit" data-id="${esc(item.id)}">${esc(item.title)}</button>`).join('')}</div></div>`:''}<div class="daily-timeline" aria-label="${ui.selected} 时间轴"><div class="time-canvas" style="height:${24*HOUR_HEIGHT}px">${Array.from({length:25},(_,hour)=>`<div class="time-tick" style="top:${hour*HOUR_HEIGHT}px"><span>${String(hour).padStart(2,'0')}:00</span><i></i></div>`).join('')}<div class="time-blocks">${timedSegments(ui.selected).map(({item,start,end,lane,lanes})=>`<button class="time-block ${(end-start)<35?'short':''}" data-action="edit" data-id="${esc(item.id)}" style="top:${start/60*HOUR_HEIGHT}px;height:${(end-start)/60*HOUR_HEIGHT}px;left:${lane/lanes*100}%;width:calc(${100/lanes}% - 4px);--event-color:${esc(item.color||'#b89b35')}" aria-label="${esc(item.title)} ${item.time}–${item.endTime||''}"><strong>${esc(item.title)}</strong><small>${item.date<ui.selected?'00:00':esc(item.time)}–${end===1440?'24:00':String(Math.floor(end/60)).padStart(2,'0')+':'+String(end%60).padStart(2,'0')}</small>${item.location?`<span>${esc(item.location)}</span>`:''}</button>`).join('')}</div>${ui.selected===today()?`<div class="now-line" style="top:${now/60*HOUR_HEIGHT}px"><span>${String(Math.floor(now/60)).padStart(2,'0')}:${String(now%60).padStart(2,'0')}</span></div>`:''}</div></div>`;
+ return `${weekdaysHTML()}<div class="week-strip" id="calendar-grid">${dates.map(date=>`<button class="day ${date===ui.selected?'selected':''} ${date===today()?'today':''}" data-action="day" data-date="${date}" aria-label="${date}" aria-pressed="${date===ui.selected}">${dayNumber(date)}<span class="lunar">${lunarLabel(date)}</span>${eventsForDay(date).length?'<span class="dot"></span>':'<span class="no-dot"></span>'}</button>`).join('')}</div>${allDay.length?`<div class="all-day-items"><span>全天</span><div>${allDay.map(item=>`<button data-action="edit" data-id="${esc(item.id)}">${esc(item.title)}</button>`).join('')}</div>`:''}${outside.length?`<div class="outside-hours"><span>${data.settings.language==='en'?'Outside daytime hours':'时段外安排'}</span>${outside.map(({item,start,end})=>`<button data-action="edit" data-id="${esc(item.id)}">${clock(start)}–${clock(end)} · ${esc(item.title||'空白任务')}</button>`).join('')}</div>`:''}<div class="daily-timeline" data-start="${axis.start}" data-hour-height="${axis.hourHeight}" aria-label="${ui.selected} 时间轴"><div class="time-canvas" style="height:${axis.height}px">${Array.from({length:(axis.end-axis.start)/60+1},(_,index)=>{const minute=axis.start+index*60;return `<div class="time-tick" style="top:${dayY(minute)}px"><span>${clock(minute)}</span><i></i></div>`;}).join('')}<div class="time-blocks">${segments.filter(({start,end})=>end>axis.start&&start<axis.end).map(({item,start,end,lane,lanes})=>{const visibleStart=Math.max(start,axis.start),visibleEnd=Math.min(end,axis.end),height=dayY(visibleEnd)-dayY(visibleStart);return `<button class="time-block ${height<36?'short':''} ${height<22?'tiny':''}" data-action="edit" data-id="${esc(item.id)}" style="top:${dayY(visibleStart)}px;height:${height}px;left:${lane/lanes*100}%;width:calc(${100/lanes}% - 3px);--event-color:${esc(item.color||'#b89b35')}" aria-label="${esc(item.title)} ${clock(start)}–${clock(end)}"><strong>${esc(item.title)}</strong><small>${clock(start)}–${clock(end)}</small>${item.location?`<span>${esc(item.location)}</span>`:''}</button>`;}).join('')}</div>${ui.selected===today()&&now>=axis.start&&now<=axis.end?`<div class="now-line" style="top:${dayY(now)}px"><span>${clock(now)}</span></div>`:''}</div></div>`;
 }
 calendarHTML=()=>{
  const title=ui.calendarView==='Year'?`${ui.year}年`:`${Number(ui.month.slice(0,4))}年 ${Number(ui.month.slice(5))}月`;
@@ -339,7 +345,7 @@ render=function(){
  renderPlannerContent();
  const stage=$('#app > .screen .calendar-stage');if(!stage)return;
  const timeline=stage.querySelector('.daily-timeline');
- if(timeline)timeline.scrollTop=oldScroll!==undefined?oldScroll:8*HOUR_HEIGHT;
+ if(timeline){const anchor=oldTimeline?Number(oldTimeline.dataset.start||0)+(oldScroll||0)/Number(oldTimeline.dataset.hourHeight||HOUR_HEIGHT)*60:480;timeline.scrollTop=Math.max(0,dayY(anchor));}
  const months=stage.querySelector('.month-scroll');if(months)months.scrollTop=!motion?.resetMonthScroll&&oldMonth===ui.month?oldMonthScroll||0:0;
  if(!oldStage||!motion||motionReduced())return;
  const outgoing=document.createElement('div');outgoing.className='calendar-outgoing';outgoing.inert=true;outgoing.setAttribute('aria-hidden','true');
