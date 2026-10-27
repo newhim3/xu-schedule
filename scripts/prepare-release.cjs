@@ -18,6 +18,6 @@ if(!Array.isArray(webAssets)||!webAssets.every(name=>/^[a-z0-9][a-z0-9.-]*$/.tes
 paths.push(...webAssets.map(p=>'replica/'+p));
 const source=crypto.createHash('sha256');
 for(const p of paths.sort()){source.update(p);source.update('\0');source.update(p.endsWith('.jpg')?fs.readFileSync(p):fs.readFileSync(p,'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n'));source.update('\0');}
-const meta={versionCode,versionName,sha256:crypto.createHash('sha256').update(fs.readFileSync('release-artifacts/xu-schedule.apk')).digest('hex'),certificateSha256:previous.certificateSha256,releaseNotes:'修复课表和日视图短任务被不断下移、越出时间轴的问题：严格按真实起止位置和长度绘制，超出显示时段裁剪但不删除，短记录可从每日条数入口查看完整清单。课表与日视图共用默认06:00–23:00刻度，设置关闭有效时段可恢复全天。左下角视图菜单的年视图下新增数据板，包含累计和当日专注次数/时长、目标占比、小时分布、月度趋势及记录明细，可按日期切换。统计只计实际专注，排除暂停和未执行计划，跨日拆分、重叠去重；子目标显示完整来源，正在进行的专注定时刷新。保留原月年热度、任务、备份和自动/手动更新。',sourceHash:source.digest('hex'),validationRunId,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};
+const meta={versionCode,versionName,sha256:crypto.createHash('sha256').update(fs.readFileSync('release-artifacts/xu-schedule.apk')).digest('hex'),certificateSha256:previous.certificateSha256,releaseNotes:fs.readFileSync('release-notes.md','utf8').trim(),sourceHash:source.digest('hex'),validationRunId,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()};
 fs.writeFileSync(metadataPath,JSON.stringify(meta,null,2)+'\n');
 console.log(JSON.stringify(meta,null,2));

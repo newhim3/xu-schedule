@@ -26,6 +26,8 @@ const GoalCore={
   const ids=new Set(),records=[];
   for(const source of incoming.items){
    if(!source||!safeId(source.id)||ids.has(source.id)||!['todo','event'].includes(source.kind)||typeof source.title!=='string'||source.title.length>1000||!validDate(source.date)||source.endDate!==undefined&&!validDate(source.endDate)||!validTime(source.time)||!validTime(source.endTime)||source.color&&!/^#[0-9a-f]{6}$/i.test(source.color)||source.notes!==undefined&&(typeof source.notes!=='string'||source.notes.length>20000)||source.importance!==undefined&&(!Number.isInteger(source.importance)||source.importance<0||source.importance>4)||source.estimatedMinutes!=null&&(!Number.isFinite(source.estimatedMinutes)||source.estimatedMinutes<=0||source.estimatedMinutes>6000000)||source.goalId!=null&&!safeId(source.goalId)||source.parentId!=null&&!safeId(source.parentId))fail();
+   if(source.alternativeGoalIds!==undefined&&(!Array.isArray(source.alternativeGoalIds)||source.alternativeGoalIds.length>100||!source.alternativeGoalIds.every(safeId)||new Set(source.alternativeGoalIds).size!==source.alternativeGoalIds.length)||source.chooseAtStart!==undefined&&typeof source.chooseAtStart!=='boolean')fail();
+   if(source.trigger!==undefined&&!plannerFocus.validTrigger(source.trigger))fail();
    ids.add(source.id);const item=JSON.parse(JSON.stringify(source));item.importance=Number.isInteger(item.importance)?item.importance:item.priority?4:0;item.calendar=typeof item.calendar==='string'&&item.calendar.length<=100?item.calendar:'Default';item.time=item.time||'';item.done=!!item.done;records.push(item);
   }
   const insights=incoming.insights===undefined?[]:incoming.insights;if(!Array.isArray(insights)||insights.length>10000)fail();

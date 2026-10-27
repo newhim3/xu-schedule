@@ -28,15 +28,83 @@
  };
  const taskEditor=editorHTML;
  editorHTML=()=>{
-  const html=taskEditor();if(draft.kind!=='todo')return html;
+  const html=taskEditor();if(draft.kind!=='todo'){
+   if(!draft.taskBlock)return html;const template=document.createElement('template');template.innerHTML=html.replace('<p class="form-error"',scheduleOptionsHTML()+'<p class="form-error"');
+   if(draft.scheduleMode==='trigger')template.content.querySelector('.schedule-dates')?.setAttribute('hidden','');return template.innerHTML;
+  }
   const fields=`<div class="edit-card deadline-editor"><div class="field-caption">${t('截止日期 DDL（可不填）','Deadline (optional)')}</div><div class="time-fields"><label>${t('日期','Date')}<input type="date" data-draft="deadlineDate" aria-label="Deadline date" value="${esc(draft.deadlineDate??draft.date??'')}"></label><label>${t('时间（可不填）','Time (optional)')}<input type="time" data-draft="deadlineTime" aria-label="Deadline time" value="${esc(draft.deadlineTime??draft.time??'')}" ${!(draft.deadlineDate??draft.date)?'disabled':''}></label></div>${rowToggle(t('显示距截止还有几天','Show deadline countdown'),'showCountdown',draft.showCountdown!==false)}${rowToggle(t('在列表显示批注','Show remarks in list'),'showRemarks',draft.showRemarks!==false)}</div>`;
   return html.replace('<p class="form-error"',fields+'<p class="form-error"');
  };
+ function planGoals(plan){return [...new Set([plan.goalId,...(plan.chooseAtStart&&Array.isArray(plan.alternativeGoalIds)?plan.alternativeGoalIds:[])])].map(id=>data.items.find(item=>item.kind==='todo'&&item.id===id)).filter(Boolean);}
+ function scheduleOptionsHTML(){
+  const rowSelect=(label,key,values,value)=>`<label class="row"><span class="label">${label}</span><select data-draft="${key}" aria-label="${label}">${values.map(option=>`<option value="${option.value}" ${option.value===value?'selected':''}>${option.label}</option>`).join('')}</select></label>`;
+  const mode=data.settings.eventTriggers||draft.trigger?`<div class="edit-card">${rowSelect(t('安排方式','Schedule type'),'scheduleMode',[{value:'time',label:t('固定时间','Fixed time')},{value:'trigger',label:t('事件触发 · 实验','After an event · experimental')}],draft.scheduleMode||'time')}</div>`:'';
+  const goals=todoPool();
+  const trigger=draft.scheduleMode==='trigger'?`<div class="edit-card trigger-editor">${!data.settings.eventTriggers?`<p class="note">${t('实验已关闭，在设置启用后才能保存或触发。','Enable this experiment in Settings to save or trigger.')}</p>`:''}${rowSelect(t('在什么之后','After what'),'triggerType',[{value:'manual',label:t('自定义事项完成','A real-world activity')},{value:'goal',label:t('目标标记完成','A goal is completed')},{value:'focus',label:t('某目标结束专注','Focus on a goal finishes')}],draft.triggerType||'manual')}${(draft.triggerType||'manual')==='manual'?`<label class="row"><span class="label">${t('前置事项','Activity')}</span><input data-draft="triggerLabel" maxlength="200" placeholder="${t('例如：吃完饭','e.g. after lunch')}" value="${esc(draft.triggerLabel||'')}"></label>`:`<label class="row"><span class="label">${t('前置目标','Preceding goal')}</span><select data-draft="triggerGoalId"><option value="">${t('选择目标','Choose goal')}</option>${goals.map(goal=>`<option value="${esc(goal.id)}" ${goal.id===draft.triggerGoalId?'selected':''}>${esc(goal.title)}</option>`).join('')}</select></label>`}<label class="row"><span class="label">${t('安排时长（分钟）','Duration (minutes)')}</span><input type="number" min="1" max="1440" data-draft="triggerMinutes" value="${esc(draft.triggerMinutes||25)}"></label><p class="note">${t('触发一次后自动生成日历安排；在专注栏点击开始。自定义事项需要手动确认完成。','Fires once and adds a calendar plan. Start it in Focus. Real-world activities need your confirmation.')}</p></div>`:'';
+  return mode+trigger+alternativeOptionsHTML();
+ }
+ function alternativeOptionsHTML(){
+  const selected=planGoals(draft),ids=new Set(selected.map(goal=>goal.id)),options=todoPool().filter(goal=>!ids.has(goal.id));
+  return `<div class="edit-card schedule-alternatives">${rowToggle(t('同一时段选择一个任务','Choose one task for this slot'),'chooseAtStart',draft.chooseAtStart)}${draft.chooseAtStart?`<p class="note">${t('开始专注时选择其中一项，只记录实际执行的目标。','Choose when starting; only the performed goal earns time.')}</p><div class="alternative-list">${selected.map(goal=>`<div><span>${esc(goalPath(goal))}</span>${goal.id!==draft.goalId?`<button data-action="alternative-remove" data-id="${esc(goal.id)}" aria-label="${t('移除备选','Remove alternative')}">${icon('close')}</button>`:`<small>${t('首选','Primary')}</small>`}</div>`).join('')}</div><label class="row"><span class="label">${t('添加备选任务','Add an alternative')}</span><select data-draft="alternativeGoalId" aria-label="${t('添加备选任务','Add an alternative')}"><option value="">${t('选择目标','Choose goal')}</option>${options.map(goal=>`<option value="${esc(goal.id)}">${esc(goal.title)}</option>`).join('')}</select></label>`:''}</div>`;
+ }
+ actions['alternative-remove']=element=>{draft.alternativeGoalIds=(draft.alternativeGoalIds||[]).filter(id=>id!==element.dataset.id);renderOverlay();};
+ document.addEventListener('change',event=>{
+  const key=event.target.dataset.draft;
+  if(key==='alternativeGoalId'&&event.target.value){draft.alternativeGoalIds=[...new Set([...(draft.alternativeGoalIds||[]),event.target.value])];delete draft.alternativeGoalId;renderOverlay();}
+  if(key==='chooseAtStart')renderOverlay();
+  if(['scheduleMode','triggerType'].includes(key))renderOverlay();
+ });
  const editItem=openEditor;
- openEditor=id=>{editItem(id);if(draft.kind==='todo'){draft.deadlineDate=draft.deadlineDate??draft.date??'';draft.deadlineTime=draft.deadlineTime??draft.time??'';draft.showCountdown=draft.showCountdown!==false;draft.showRemarks=draft.showRemarks!==false;renderOverlay();}};
+ openEditor=id=>{
+  editItem(id);
+  draft.scheduleMode=draft.trigger?'trigger':'time';draft.triggerType=draft.trigger?.type||'manual';draft.triggerLabel=draft.trigger?.label||'';draft.triggerGoalId=draft.trigger?.goalId||'';draft.triggerMinutes=draft.trigger?.minutes||25;
+  if(draft.kind==='todo'){draft.deadlineDate=draft.deadlineDate??draft.date??'';draft.deadlineTime=draft.deadlineTime??draft.time??'';draft.showCountdown=draft.showCountdown!==false;draft.showRemarks=draft.showRemarks!==false;}
+  else if(!data.items.some(item=>item.id===draft.id)){
+   const cursor=data.settings.scheduleCursor;
+   if(cursor?.savedOn===today()&&cursor.date===draft.date&&/^([01]\d|2[0-3]):[0-5]\d$/.test(cursor.time)){draft.time=cursor.time;draft.endTime=cursor.time;draft.endDate=cursor.date;}
+  }
+  renderOverlay();
+ };
+ function alignScheduleEnd(event){
+  if(!draft||draft.kind!=='event'||!['time','date'].includes(event.target.dataset.draft))return;
+  draft.endTime=draft.time;draft.endDate=draft.date;
+  for(const key of ['endTime','endDate']){const input=document.querySelector(`[data-draft="${key}"]`);if(input)input.value=draft[key]||'';}
+ }
+ document.addEventListener('input',alignScheduleEnd);document.addEventListener('change',alignScheduleEnd);
  document.addEventListener('change',event=>{if(event.target.dataset.draft==='deadlineDate'){const field=document.querySelector('[data-draft="deadlineTime"]');if(field){field.disabled=!draft.deadlineDate;if(!draft.deadlineDate){draft.deadlineTime='';field.value='';}}}});
  const saveItem=saveDraft;
- saveDraft=()=>{if(draft.kind==='todo'){draft.date=draft.deadlineDate||'';draft.time=draft.deadlineTime||'';draft.endDate=draft.date;draft.endTime=draft.time;}if(draft.title.trim())draft.blank=false;saveItem();};actions.save=()=>saveDraft();
+ saveDraft=()=>{
+  if(draft.kind==='event'&&draft.taskBlock&&draft.scheduleMode==='trigger'){saveTriggerDraft();return;}
+  if(draft.kind==='event'){delete draft.trigger;clearTriggerFields(draft);}
+  if(draft.kind==='event'&&draft.taskBlock&&draft.chooseAtStart&&planGoals(draft).length<2){$('#form-error').textContent=t('请选择首选目标和至少一个备选目标','Choose a primary goal and at least one alternative');return;}
+  if(draft.kind==='event'){draft.alternativeGoalIds=draft.chooseAtStart?planGoals(draft).filter(goal=>goal.id!==draft.goalId).map(goal=>goal.id):[];delete draft.alternativeGoalId;}
+  const existing=data.items.find(item=>item.id===draft.id),cursor=data.settings.scheduleCursor;
+  const advance=draft.kind==='event'&&(!existing||existing.blank)&&GoalCore.durationMinutes(draft)>0;
+  if(advance)data.settings.scheduleCursor={savedOn:today(),date:draft.endDate||draft.date,time:draft.endTime};
+  if(draft.kind==='todo'){draft.date=draft.deadlineDate||'';draft.time=draft.deadlineTime||'';draft.endDate=draft.date;draft.endTime=draft.time;}
+  if(draft.title.trim())draft.blank=false;saveItem();
+  if(panel&&advance)data.settings.scheduleCursor=cursor;
+ };actions.save=()=>saveDraft();
+ function clearTriggerFields(item){for(const key of ['scheduleMode','triggerType','triggerLabel','triggerGoalId','triggerMinutes'])delete item[key];}
+ function saveTriggerDraft(){
+  const rule={type:draft.triggerType||'manual',label:(draft.triggerLabel||'').trim(),goalId:draft.triggerGoalId||'',minutes:Number(draft.triggerMinutes),state:'armed'};
+  if(!data.settings.eventTriggers||!draft.title.trim()||!FocusCore.validTrigger(rule)||rule.type!=='manual'&&!data.items.some(item=>item.kind==='todo'&&item.id===rule.goalId)||draft.chooseAtStart&&planGoals(draft).length<2){$('#form-error').textContent=t('请启用实验，并填写前置事项、有效目标和 1–1440 分钟时长','Enable the experiment and provide a source, valid goals and 1–1440 minutes');return;}
+  const previous=data.items;data.items=data.items.map(item=>({...item}));const saved={...draft,title:draft.title.trim(),trigger:rule,date:'',time:'',endDate:'',endTime:'',done:false,blank:false,importance:Number(draft.importance)||0};clearTriggerFields(saved);delete saved.estimateHours;delete saved.alternativeGoalId;
+  if(!data.items.some(item=>item.id===saved.goalId&&item.kind==='todo')){const goal={id:uid(),kind:'todo',title:saved.title,date:'',time:'',calendar:saved.calendar||'Default',color:saved.color,importance:saved.importance,done:false};data.items.push(goal);saved.goalId=goal.id;}
+  data.items=data.items.filter(item=>item.id!==saved.id).concat(saved);if(!persist()){data.items=previous;return;}panel=null;render();toast(t('已保存，等待前置事项完成','Saved; waiting for the preceding activity'));
+ }
+ const persistWithTriggers=persist;
+ let restoringScheduleBackup=false;
+ const importScheduleBackup=importBackupFile;importBackupFile=async file=>{restoringScheduleBackup=true;try{return await importScheduleBackup(file);}finally{restoringScheduleBackup=false;}};
+ persist=()=>{
+  let previous=null;try{previous=JSON.parse(localStorage.getItem(STORE));}catch{}
+  const before=data.items;data.items=FocusCore.activateTriggers(data.items,data.focusSessions,previous,data.settings.eventTriggers===true&&!restoringScheduleBackup,Date.now());
+  if(!persistWithTriggers()){data.items=before;return false;}return true;
+ };
+ actions['trigger-manual']=element=>{
+  const before=data.items;data.items=FocusCore.activateTriggers(data.items,data.focusSessions,null,data.settings.eventTriggers===true,Date.now(),element.dataset.id);
+  if(!persist()){data.items=before;return;}const plan=data.items.find(item=>item.triggeredBy===element.dataset.id);if(plan){ui.focusMode='planned';ui.focusPlan=plan.id;ui.focusPlanGoal=null;ui.selected=plan.date;}render();
+ };
  const ordinaryCalendar=calendarHTML;
  calendarHTML=()=>{
   if(ui.tab==='focus')return focusHTML();const html=ordinaryCalendar();
@@ -77,11 +145,11 @@
  }
  function timetableHTML(){
   const dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i)),axis=dayAxis(),outside=[];
-  const columns=dates.map(date=>{const all=timedSegments(date);outside.push(...all.filter(({start,end})=>end<=axis.start||start>=axis.end).map(({item})=>item));const segments=all.filter(({start,end})=>end>axis.start&&start<axis.end),shadowed=segments.some(({item})=>item.focusCoveredBy?.length);
+  const columns=dates.map(date=>{const all=timedSegments(date);outside.push(...all.filter(({start,end})=>end<=axis.start||start>=axis.end).map(({item})=>item));const segments=all.filter(({start,end})=>end>axis.start&&start<axis.end),shadowed=segments.some(({item})=>item.focusCoveredBy?.length&&!item.renderRemainder);
    return `<div class="timetable-day" data-date="${date}">${segments.map(({item,start,end,lane,lanes})=>{
-    const shadow=item.focusCoveredBy?.length,actual=item.focusActual,title=item.title||t('空白任务','Blank task'),top=dayY(Math.max(start,axis.start)),height=dayY(Math.min(end,axis.end))-top;
-    const left=shadow?0:actual&&shadowed?32:lane/lanes*100,width=shadow?30:actual&&shadowed?68:100/lanes;
-    return `<button class="timetable-event ${height<44?'tiny-record':''} ${shadow?'plan-shadow':''} ${actual?'focus-actual':''}" data-action="edit" data-id="${esc(item.id)}" aria-label="${esc(title)} ${item.time}–${item.endTime}" style="top:${top}px;height:${height}px;left:${left}%;width:calc(${width}% - 2px);--label-lines:${Math.max(1,Math.min(3,Math.floor((height-30)/12)))};--event-color:${esc(item.color||'#5ba6a0')}"><strong>${esc(title)}</strong><small>${esc(item.time)}<br>${esc(item.endTime||'')}</small></button>`;
+    const shadow=item.focusCoveredBy?.length&&!item.renderRemainder,actual=item.focusActual,title=item.title||t('空白任务','Blank task'),top=dayY(Math.max(start,axis.start)),height=dayY(Math.min(end,axis.end))-top;
+    const left=shadow?0:actual&&shadowed&&!item.samePlanOverlay?32:lane/lanes*100,width=shadow?30:actual&&shadowed&&!item.samePlanOverlay?68:100/lanes;
+    return `<button class="timetable-event ${height<44?'tiny-record':''} ${shadow?'plan-shadow':''} ${actual?'focus-actual':''} ${item.renderRemainder?'plan-remainder':''} ${item.samePlanOverlay?'same-plan-overlay':''}" data-action="edit" data-id="${esc(item.id)}" aria-label="${esc(title)} ${item.time}–${item.endTime}" style="top:${top}px;height:${height}px;left:${left}%;width:calc(${width}% - 2px);--label-lines:${Math.max(1,Math.min(3,Math.floor((height-30)/12)))};--event-color:${esc(item.color||'#5ba6a0')}"><strong>${esc(title)}</strong><small>${esc(item.time)}<br>${esc(item.endTime||'')}</small></button>`;
    }).join('')}</div>`;
   }).join('');
   return `${weekdaysHTML()}<div class="week-strip timetable-strip">${dates.map(date=>`<button class="day ${date===today()?'today':''}" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}</button>`).join('')}</div><div class="timetable-records">${dates.map(date=>`<button data-action="timetable-records" data-date="${date}" aria-label="${date} ${t('完整记录','All records')}">${timedSegments(date).length}${t('条',' items')}</button>`).join('')}</div>${outside.length?`<div class="outside-hours"><span>${t('时段外安排','Outside daytime hours')}</span>${outside.map(item=>`<button data-action="edit" data-id="${esc(item.id)}">${esc(item.date)} ${esc(item.time)} · ${esc(item.title)}</button>`).join('')}</div>`:''}<div class="timetable-scroll"><div class="timetable-canvas" style="height:${axis.height}px;--axis-hour:${axis.hourHeight}px"><div class="timetable-axis">${Array.from({length:(axis.end-axis.start)/60+1},(_,index)=>{const minute=axis.start+index*60;return `<span style="top:${dayY(minute)}px">${String(minute/60).padStart(2,'0')}:00</span>`;}).join('')}</div>${columns}</div></div><p class="timetable-caption">${t('按真实起止绘制 · 短任务点击上方条数查看完整记录','True time scale · tap record counts for short tasks')}</p>`;
@@ -91,7 +159,7 @@
  function currentFocus(){return data.focusSessions.filter(session=>session.status!=='finished').sort((a,b)=>b.startedAt-a.startedAt)[0]||null;}
  function timerText(milliseconds){const seconds=Math.floor(Math.max(0,milliseconds)/1000);return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':');}
  function plannedItems(){return data.items.filter(item=>item.kind==='event'&&item.taskBlock&&!item.focusActual&&item.date===today()&&data.items.some(goal=>goal.id===item.goalId&&goal.kind==='todo')).sort((a,b)=>(a.time||'').localeCompare(b.time||''));}
- function selectedFocus(){const plan=ui.focusMode==='planned'?data.items.find(item=>item.id===ui.focusPlan):null;const goal=data.items.find(item=>item.kind==='todo'&&item.id===(plan?.goalId||ui.focusGoal));return {plan,goal,ready:!!goal&&(ui.focusMode==='free'||!!plan&&FocusCore.available(plan,Date.now()))};}
+ function selectedFocus(){const plan=ui.focusMode==='planned'?data.items.find(item=>item.id===ui.focusPlan):null;const goals=plan?planGoals(plan):[],goal=plan?.chooseAtStart?goals.find(goal=>goal.id===ui.focusPlanGoal):data.items.find(item=>item.kind==='todo'&&item.id===(plan?.goalId||ui.focusGoal));return {plan,goal,ready:!!goal&&(ui.focusMode==='free'||!!plan&&FocusCore.available(plan,Date.now()))};}
  const focusCollapsed=new Set();
  function focusGoalList(){
   const goals=todoPool().filter(goal=>!goal.done),ids=new Set(goals.map(goal=>goal.id));
@@ -104,6 +172,16 @@
  }
  actions['focus-tree-fold']=element=>{const id=element.dataset.id;focusCollapsed.has(id)?focusCollapsed.delete(id):focusCollapsed.add(id);render();};
  function focusHTML(){
+  const html=focusBaseHTML(),selected=selectedFocus(),template=document.createElement('template');template.innerHTML=html;
+  if(data.settings.eventTriggers){const rules=data.items.filter(item=>FocusCore.validTrigger(item.trigger));template.content.querySelector('.focus-history')?.insertAdjacentHTML('beforebegin',`<section class="trigger-list"><h3>${t('事件触发 · 实验','Event triggers · experimental')}</h3>${rules.map(item=>{const rule=item.trigger,source=data.items.find(goal=>goal.id===rule.goalId);return `<div class="trigger-rule"><button data-action="edit" data-id="${esc(item.id)}"><strong>${esc(item.title)}</strong><small>${esc(rule.type==='manual'?rule.label:goalPath(source))} · ${rule.minutes}${t('分钟',' min')} · ${rule.state==='fired'?t('已触发','Triggered'):t('等待完成','Waiting')}</small></button>${rule.type==='manual'&&rule.state==='armed'?`<button class="trigger-confirm" data-action="trigger-manual" data-id="${esc(item.id)}">${t('前置已完成','Activity done')}</button>`:''}</div>`;}).join('')||`<p class="note">${t('在日历新建任务时，选择“事件触发”安排方式。','Create a task in Calendar and select After an event.')}</p>`}</section>`);}
+  for(const button of template.content.querySelectorAll('.focus-plan')){const plan=data.items.find(item=>item.id===button.dataset.id);if(plan?.chooseAtStart)button.querySelector('strong').insertAdjacentHTML('afterend',`<small>${t('备选任务','Alternatives')} · ${planGoals(plan).length}</small>`);}
+  if(!currentFocus()&&selected.plan?.chooseAtStart){
+   const list=planGoals(selected.plan).map(goal=>`<button class="choice-option ${goal.id===ui.focusPlanGoal?'is-selected':''}" data-action="focus-plan-goal" data-id="${esc(goal.id)}" aria-pressed="${goal.id===ui.focusPlanGoal}"><span class="choice-copy">${esc(goalPath(goal))}</span><span class="choice-radio">${goal.id===ui.focusPlanGoal?icon('check'):''}</span></button>`).join('');
+   template.content.querySelector('.focus-timer').insertAdjacentHTML('afterend',`<section class="focus-slot-options"><h3>${t('这个时段做哪一项？','Which task for this slot?')}</h3>${list}</section>`);
+  }
+  return template.innerHTML;
+ }
+ function focusBaseHTML(){
   const active=currentFocus(),selected=selectedFocus(),mode=ui.focusMode,plans=plannedItems();
   const choices=mode==='planned'?plans.map(item=>`<button class="focus-plan ${item.id===ui.focusPlan?'selected':''} ${FocusCore.available(item,Date.now())?'':'locked'}" data-action="focus-select-plan" data-id="${esc(item.id)}" aria-pressed="${item.id===ui.focusPlan}"><span><strong>${esc(item.title)}</strong><span class="goal-origin">${esc(goalPath(data.items.find(goal=>goal.id===item.goalId)))}</span><small>${esc(item.time)}–${esc(item.endTime)} · ${FocusCore.available(item,Date.now())?t('现在可开始','Available now'):Date.now()<FocusCore.range(item)[0]?t('未到开始时间','Not started yet'):t('已过计划时段','Window ended')}</small></span>${icon(item.id===ui.focusPlan?'check':'clock')}</button>`).join('')||`<p class="note">${t('今天还没有关联目标的安排。可去日历新建，或自由选择目标。','No linked plans today. Schedule one or choose freely.')}</p>`:focusGoalList();
   const status=active?({running:t('专注中','Focusing'),paused:t('已暂停 · 不计时','Paused · not counting'),boundary:t('计划时段已结束','Planned period complete')})[active.status]:t('准备开始','Ready');
@@ -118,11 +196,13 @@
   if(!persist()){data.items=previousItems;data.focusSessions=previousSessions;return false;}return true;
  }
  actions['focus-mode']=element=>{ui.focusMode=element.dataset.mode==='free'?'free':'planned';render();};
- actions['focus-select-plan']=element=>{ui.focusPlan=element.dataset.id;render();};
+ actions['focus-select-plan']=element=>{ui.focusPlan=element.dataset.id;ui.focusPlanGoal=null;render();};
+ actions['focus-plan-goal']=element=>{const plan=data.items.find(item=>item.id===ui.focusPlan);if(plan&&planGoals(plan).some(goal=>goal.id===element.dataset.id)){ui.focusPlanGoal=element.dataset.id;render();}};
  actions['focus-select-goal']=element=>{ui.focusGoal=element.dataset.id;render();};
  actions['focus-start']=()=>{
   const selected=selectedFocus();if(currentFocus()||!selected.ready){toast(t('请在可用时段选择目标','Choose an available goal and time'));return;}
   const session=FocusCore.start({id:uid(),goalId:selected.goal.id,goalTitle:selected.goal.title,color:selected.goal.color,plan:selected.plan},Date.now());
+  if(!selected.plan)session.planId=FocusCore.nearbyPlan(data.items,selected.goal.id,Date.now())?.id||null;
   if(commitSession(session)){render();}
  };
  for(const [action,method] of [['focus-pause','pause'],['focus-resume','resume'],['focus-extend','extend'],['focus-finish','finish']])actions[action]=()=>{const active=currentFocus();if(active&&commitSession(FocusCore[method](active,Date.now())))render();};
@@ -139,27 +219,57 @@
  const nativeNavigation=actions.tab;actions.tab=element=>{refreshFocus();nativeNavigation(element);};
  const originalSegments=timedSegments;
  timedSegments=date=>{
-  const items=data.items;try{data.items=items.map(item=>item.focusCoveredBy?.length&&item.planOriginal?{...item,...item.planOriginal}:item);return originalSegments(date);}finally{data.items=items;}
+  const items=data.items;try{data.items=FocusCore.calendarItems(items);return originalSegments(date);}finally{data.items=items;}
  };
  const dayTimeline=weekHTML;
  weekHTML=()=>{
-  const template=document.createElement('template');template.innerHTML=dayTimeline();
+  if(data.settings.dayDisplay==='clock'&&ui.calendarView==='Week')return clockDayHTML();
+  const template=document.createElement('template');template.innerHTML=dayTimeline();const visualSegments=timedSegments(ui.selected);
   for(const block of template.content.querySelectorAll('.time-block')){
    const item=data.items.find(record=>record.id===block.dataset.id);if(!item)continue;
+   const segment=visualSegments.find(segment=>segment.item.id===item.id&&Math.abs(dayY(Math.max(segment.start,dayAxis().start))-parseFloat(block.style.top))<.1);
+   if(segment?.item.renderRemainder){block.classList.add('plan-remainder');block.querySelector('.session-check')?.remove();}
+   if(segment?.item.samePlanOverlay)block.classList.add('same-plan-overlay');
    const linkedGoal=data.items.find(goal=>goal.id===item.goalId);if(linkedGoal?.parentId)block.querySelector('strong').textContent=goalPath(linkedGoal);
    if(item.focusActual){block.classList.add('focus-actual');block.querySelector('.session-check')?.remove();block.style.zIndex='3';}
-   if(item.focusCoveredBy?.length){block.classList.add('plan-shadow');block.style.left='0';block.style.width='30%';block.style.zIndex='1';block.querySelector('.session-check')?.remove();block.querySelector('.time-block-main')?.insertAdjacentHTML('afterbegin',`<span class="coverage-caption">${t('原计划','Original plan')}</span>`);}
+   if(item.focusCoveredBy?.length&&!segment?.item.renderRemainder){block.classList.add('plan-shadow');block.style.left='0';block.style.width='30%';block.style.zIndex='1';block.querySelector('.session-check')?.remove();block.querySelector('.time-block-main')?.insertAdjacentHTML('afterbegin',`<span class="coverage-caption">${t('原计划','Original plan')}</span>`);}
    if(item.blank){block.classList.add('blank-range');block.querySelector('.session-check')?.remove();block.querySelector('strong').textContent=t('空白任务 · 点此编辑','Blank task · tap to edit');block.insertAdjacentHTML('beforeend',`<button class="range-handle start" data-action="range-handle" data-resize="start" aria-label="${t('调整开始时间','Resize start')}"></button><button class="range-handle end" data-action="range-handle" data-resize="end" aria-label="${t('调整结束时间','Resize end')}"></button>`);}
   }
   const shadows=template.content.querySelectorAll('.plan-shadow');
   for(const block of template.content.querySelectorAll('.focus-actual')){
-   if(shadows.length){block.style.left='33%';block.style.width='calc(67% - 4px)';block.classList.add('covers-plan');}else{block.style.left='6px';block.style.width='calc(100% - 10px)';}
+   if(shadows.length&&!block.classList.contains('same-plan-overlay')){block.style.left='33%';block.style.width='calc(67% - 4px)';block.classList.add('covers-plan');}else if(!block.classList.contains('same-plan-overlay')){block.style.left='6px';block.style.width='calc(100% - 10px)';}
    block.querySelector('.time-block-main')?.insertAdjacentHTML('afterbegin',`<span class="coverage-caption">${t('实际专注','Actual focus')}</span>`);
   }
   if(template.content.querySelector('.focus-actual'))template.content.querySelector('.daily-timeline').insertAdjacentHTML('beforebegin',`<button class="day-records-link" data-action="timetable-records" data-date="${ui.selected}">${t('查看当天完整记录','View all daily records')}</button>`);
   template.content.querySelector('.daily-timeline')?.insertAdjacentHTML('beforebegin',`<p class="range-instruction">${t('长按空白处新建 · 拖动上下手柄调时 · 15 分钟吸附','Hold empty space to create · drag handles · snaps to 15 min')}</p>`);
   return template.innerHTML;
  };
+ function clockSegments(){const axis=dayAxis();return timedSegments(ui.selected).filter(part=>part.end>axis.start&&part.start<axis.end).map(part=>({...part,start:Math.max(part.start,axis.start),end:Math.min(part.end,axis.end)}));}
+ function clockDayHTML(){
+  const segments=clockSegments(),layout=FocusCore.clockLayout(segments),dates=Array.from({length:7},(_,i)=>addDays(weekStart(ui.selected),i));
+  const point=(minute,radius)=>{const angle=minute/1440*Math.PI*2-Math.PI/2;return [200+Math.cos(angle)*radius,200+Math.sin(angle)*radius];};
+  const arc=(start,end,outer,inner)=>{if(end-start>=1440)end=start+1439.99;const a=point(start,outer),b=point(end,outer),c=point(end,inner),d=point(start,inner),large=end-start>720?1:0;return `M${a} A${outer},${outer} 0 ${large} 1 ${b} L${c} A${inner},${inner} 0 ${large} 0 ${d} Z`;};
+  const tracks=[154,132,110].map(outer=>`<circle class="clock-track" cx="200" cy="200" r="${outer-7}"/>`).join('');
+  const ribbons=layout.arcs.map(({item,start,end,track})=>{const outer=154-track*22,inner=outer-14;return `<path class="clock-sector ${item.renderRemainder?'is-remainder':''} ${item.focusActual?'is-actual':''} ${ui.clockSelection===item.id&&ui.clockStart===start?'is-selected':''}" data-action="clock-select" data-id="${esc(item.id)}" data-start="${start}" data-track="${track}" tabindex="0" role="button" aria-label="${esc(item.title||t('空白任务','Blank task'))} ${minuteText(start)}–${minuteText(end)}" d="${arc(start+2,end-2,outer,inner)}" style="--sector-color:${esc(item.color||'#8cbfae')}"><title>${esc(item.title)} ${minuteText(start)}–${minuteText(end)}</title></path>`;}).join('');
+  const clusters=layout.groups.map(group=>{const p=point((group.start+group.end)/2,80);return `<g class="clock-cluster" data-action="clock-cluster" data-group="${group.key}" tabindex="0" role="button" aria-label="${minuteText(group.start)}–${minuteText(group.end)} ${t('起始的其他安排','other schedules starting here')} · ${group.segments.length}" transform="translate(${p})"><circle class="clock-cluster-hit" r="19"/><circle class="clock-cluster-dot" r="12"/><text text-anchor="middle" dominant-baseline="central">${group.segments.length>99?'99+':group.segments.length}</text></g>`;}).join('');
+  const sectors=tracks+ribbons+clusters;
+  const ticks=Array.from({length:288},(_,index)=>{const minute=index*5,a=point(minute,minute%60===0?164:minute%15===0?169:174),b=point(minute,179);return `<line class="clock-tick ${minute%60===0?'hour-tick':''}" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>`;}).join('');
+  const hours=Array.from({length:24},(_,hour)=>{const p=point(hour*60,192);return `<text class="clock-hour" x="${p[0]}" y="${p[1]}" text-anchor="middle" dominant-baseline="central">${String(hour).padStart(2,'0')}</text>`;}).join('');
+  const nowParts=FocusCore.parts(Date.now()),now=minuteOf(nowParts.time),hand=point(now,160),base=point(now,62);
+  const chosenSegment=segments.find(part=>part.item.id===ui.clockSelection&&part.start===ui.clockStart),chosen=chosenSegment?.item,label=chosen?(data.items.find(goal=>goal.id===chosen.goalId)?goalPath(data.items.find(goal=>goal.id===chosen.goalId)):chosen.title):'';
+  return `${weekdaysHTML()}<div class="week-strip clock-week">${dates.map(date=>`<button class="day ${date===today()?'today':''} ${date===ui.selected?'selected':''}" data-action="day" data-date="${date}" aria-label="${date}">${dayNumber(date)}</button>`).join('')}</div><section class="clock-day"><div class="clock-face"><svg class="schedule-clock" viewBox="0 0 400 400" role="group" aria-label="${ui.selected} ${t('24 小时日程钟表','24-hour schedule clock')}"><circle cx="200" cy="200" r="156" class="clock-bed"/>${sectors}<g class="clock-scale">${ticks}${hours}</g>${ui.selected===today()?`<line class="clock-now" x1="${base[0]}" y1="${base[1]}" x2="${hand[0]}" y2="${hand[1]}"/><circle class="clock-now-dot" cx="${hand[0]}" cy="${hand[1]}" r="3"/>`:''}<text x="200" y="193" class="clock-center" text-anchor="middle">${ui.selected===today()?nowParts.time:ui.selected.slice(5)}</text><text x="200" y="216" class="clock-subtitle" text-anchor="middle">${t('24 小时 · 5 分钟刻度','24 hours · 5-min ticks')}</text></svg></div><div class="clock-selection">${chosen&&chosenSegment?`<button data-action="edit" data-id="${esc(chosen.id)}"><strong>${esc(label)}</strong><small>${ui.selected} · ${minuteText(chosenSegment.start)}–${minuteText(chosenSegment.end)}${chosen.chooseAtStart?' · '+t('含备选任务','Alternatives available'):''}</small></button>`:`<p>${t('点色带查看日程 · 数字标记展开短任务与重叠安排','Tap a ribbon for details · numbered dots show busy periods')}</p>`}</div><button class="clock-records-link" data-action="clock-records">${t('当天全部安排','All schedules today')} · ${eventsForDay(ui.selected).length}${t(' 条',' items')}</button></section>`;
+ }
+ function fitClock(){const clock=document.querySelector('#app > .screen .clock-day'),dock=document.querySelector('#app > .screen .dock')||document.querySelector('.dock');if(clock){const top=clock.getBoundingClientRect().top,bottom=dock?.getBoundingClientRect().top||innerHeight-90;clock.style.height=Math.max(120,bottom-top-10)+'px';}}
+ window.addEventListener('resize',fitClock);window.visualViewport?.addEventListener('resize',fitClock);
+ actions['clock-view']=()=>{data.settings.dayDisplay='clock';persist();menu=null;ui.calendarView='Week';ui.tab='calendar';render();};
+ actions['clock-select']=element=>{ui.clockSelection=element.dataset.id;ui.clockStart=Number(element.dataset.start);render();};
+ actions['clock-cluster']=element=>{
+  const group=FocusCore.clockLayout(clockSegments()).groups.find(group=>group.key===Number(element.dataset.group));if(!group)return;
+  showDialog(t('密集时段的安排','Schedules in this busy period'),`<p class="note">${minuteText(group.start)}–${minuteText(group.end)} ${t('开始 · 点击查看或编辑','starts · tap to view or edit')}</p><div class="timeline-record-list">${group.segments.map(({item,start,end})=>{const goal=data.items.find(goal=>goal.id===item.goalId);return `<button data-action="edit" data-id="${esc(item.id)}"><strong>${esc(goal?goalPath(goal):item.title||t('空白任务','Blank task'))}</strong><small>${minuteText(start)}–${minuteText(end)} · ${item.focusActual?t('实际专注','Actual focus'):item.renderRemainder?t('未执行计划','Unperformed plan'):t('计划','Plan')}</small></button>`;}).join('')}</div>`,()=>true,t('关闭','Close'));
+ };
+ actions['clock-records']=()=>showDialog(ui.selected+' · '+t('全部安排','All schedules'),`<div class="timeline-record-list">${eventsForDay(ui.selected).map(item=>`<button data-action="edit" data-id="${esc(item.id)}"><strong>${esc(item.title||t('空白任务','Blank task'))}</strong><small>${item.allDay?t('全天','All day'):esc(item.time)+'–'+esc(item.endTime||'')}${item.chooseAtStart?' · '+t('可选择任务','Alternative tasks'):''}</small></button>`).join('')||`<p class="note">${t('当天没有安排','No schedules today')}</p>`}</div>`,()=>true,t('关闭','Close'));
+ const calendarViewBeforeClock=actions['calendar-view'];actions['calendar-view']=element=>{if(element.dataset.view==='Week'){data.settings.dayDisplay='timeline';persist();if(ui.calendarView==='Week'){menu=null;render();return;}}calendarViewBeforeClock(element);};
+ document.addEventListener('keydown',event=>{if((event.target.classList?.contains('clock-sector')||event.target.classList?.contains('clock-cluster'))&&['Enter',' '].includes(event.key)){event.preventDefault();actions[event.target.dataset.action](event.target);}});
  let rangePress=null;
  const minuteText=minute=>String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
  function rangeValue(canvas,y){return FocusCore.snap(dayMinute(y-canvas.getBoundingClientRect().top));}
@@ -213,7 +323,8 @@
  const editCalendarItem=actions.edit;actions.edit=element=>{if(element.closest?.('.timeline-record-list'))modal=null;const item=data.items.find(record=>record.id===element.dataset.id);if(item?.focusActual){showDialog(t('实际专注记录','Actual focus'),`<p>${esc(item.title)}</p><p class="note">${esc(item.date)} ${esc(item.time)}–${esc(item.endTime)}<br>${timerText(item.actualEndAt-item.actualStartAt)} · ${t('已计入目标投入；暂停时间已排除','Credited to goal; paused time excluded')}</p>`,()=>true,t('知道了','OK'));}else editCalendarItem(element);};
  const previousSettings=settingsHTML;
  settingsHTML=()=>{
-  const html=previousSettings().replaceAll('1.3.0','1.6.0');if(panel.sub!=='root')return html;
+  let html=previousSettings().replaceAll('1.3.0','1.7.0');if(panel.sub!=='root')return html;
+  html=html.replace('<div class="section-caption">',`<div class="setting-card">${rowToggle(t('事件触发排程 · 实验','Event-trigger scheduling · experimental'),'eventTriggers',data.settings.eventTriggers===true,true,t('完成前置事项后生成安排，关闭后暂停触发并保留规则。','Creates a plan after an activity. Disabling keeps your rules.'))}</div><div class="section-caption">`);
   const density=`<div class="setting-card"><label class="row"><span class="label">${t('日视图默认模式','Daytime view')}<small>${t('06:00–23:00 · 总高度不变，每小时空间增加约41%','06:00–23:00 · same canvas, 41% more room per hour')}</small></span><input type="checkbox" class="toggle" data-setting="daytimeOnly" ${data.settings.daytimeOnly!==false?'checked':''}></label></div><div class="setting-card"><label class="row"><span class="label">${t('目标卡片疏密','Goal card density')}<small>${t('调整卡片高度，字号保持不变','Adjust card height without changing text size')}</small></span><select id="card-density" aria-label="${t('目标卡片疏密','Goal card density')}">${Object.entries(cardDensities).map(([key,label])=>`<option value="${key}" ${key===(data.settings.cardDensity||'compact')?'selected':''}>${t(...label)}</option>`).join('')}</select></label></div>`;
   return html.replace('<div class="section-caption">',density+`<div class="background-choices"><div class="field-caption">${t('日历背景 · 日 / 周 / 月通用','Calendar background · all views')}</div><div>${Object.entries(themes).map(([key,label])=>`<button data-action="background-pick" data-theme="${key}" aria-pressed="${data.settings.calendarBackground===key}"><img src="background-${key}.jpg" alt="" loading="lazy"><span>${t(...label)}</span></button>`).join('')}</div><p class="background-credit">${t('自然摄影来自 Unsplash，已随应用离线打包','Nature photography from Unsplash; available offline')}</p></div><div class="section-caption">`).replace(t('月视图玻璃背景','Glass calendar background'),t('日历透明背景','Glass calendar background'));
  };
@@ -225,7 +336,8 @@
  // Every select keeps its original value/change contract; only its presentation changes.
  let choiceState=null;
  const choiceColors=['#8b929d','#7b8dc8','#5ba6a0','#b89b35','#c66f78'];
- function choiceLabel(select){const goal=['goalId','parentId'].includes(select.dataset.draft)?data.items.find(item=>item.id===select.value):null;return goal?goalPath(goal):select.selectedOptions[0]?.textContent||'';}
+ function isGoalChoice(select){return ['goalId','parentId','alternativeGoalId','triggerGoalId'].includes(select.dataset.draft);}
+ function choiceLabel(select){const goal=isGoalChoice(select)?data.items.find(item=>item.id===select.value):null;return goal?goalPath(goal):select.selectedOptions[0]?.textContent||'';}
  function enhanceChoices(){
   for(const select of document.querySelectorAll('#overlay select')){
    let trigger=select.nextElementSibling;
@@ -249,7 +361,7 @@
   return `<button type="button" class="choice-option goal-choice ${selected?'is-selected':''}" data-choice-value="${esc(goal.id)}" aria-pressed="${selected}"><span class="choice-goal-copy"><strong>${esc(goal.title)}</strong>${goal.parentId?`<small class="choice-origin">${esc(goalPath(goal,false))}</small>`:''}<span class="choice-meta">${t('已投入','Invested')} ${(minutes/60).toFixed(2)}h${estimate?' / '+t('预估','estimate')+' '+(estimate/60).toFixed(2)+'h':''}</span>${estimate?`<span class="choice-progress"><i style="transform:scaleX(${Math.min(1,minutes/estimate)})"></i></span>`:''}</span>${estimate?`<span class="choice-percent">${icon('flag')}${percent}%</span>`:''}<span class="choice-radio" aria-hidden="true">${selected?icon('check'):''}</span></button>`;
  }
  function choiceList(state){
-  const options=Array.from(state.select.options).filter(option=>!option.disabled),goalField=['goalId','parentId'].includes(state.select.dataset.draft),search=state.query.trim().toLowerCase();
+  const options=Array.from(state.select.options).filter(option=>!option.disabled),goalField=isGoalChoice(state.select),search=state.query.trim().toLowerCase();
   if(!goalField)return options.map(option=>`<button type="button" class="choice-option ${state.select.dataset.draft==='importance'?'importance-choice':''} ${option.value===state.select.value?'is-selected':''}" data-choice-value="${esc(option.value)}" aria-pressed="${option.value===state.select.value}">${state.select.dataset.draft==='importance'?`<i class="choice-swatch" style="background:${choiceColors[Number(option.value)]}"></i>`:''}<span class="choice-copy">${esc(option.textContent)}</span><span class="choice-radio">${option.value===state.select.value?icon('check'):''}</span></button>`).join('');
   const allowed=new Set(options.map(option=>option.value)),goals=todoPool().filter(goal=>allowed.has(goal.id));
   const empty=options.find(option=>option.value==='');
@@ -262,7 +374,7 @@
  }
  function openChoice(select,trigger){
   if(choiceState)closeChoice();const dialog=document.createElement('dialog');dialog.className='choice-sheet';
-  const goalField=['goalId','parentId'].includes(select.dataset.draft),title=select.closest('.row')?.querySelector('.label')?.textContent||select.getAttribute('aria-label')||t('选择','Choose');
+  const goalField=isGoalChoice(select),title=select.closest('.row')?.querySelector('.label')?.textContent||select.getAttribute('aria-label')||t('选择','Choose');
   const state={select,trigger,dialog,query:'',expanded:new Set()};let parent=data.items.find(item=>item.id===select.value)?.parentId;while(parent&&!state.expanded.has(parent)){state.expanded.add(parent);parent=data.items.find(item=>item.id===parent)?.parentId;}
   dialog.innerHTML=`<header class="choice-header"><div><small>${t('请选择','Choose')}</small><h2>${esc(title)}</h2></div><button type="button" class="choice-close" aria-label="${t('关闭','Close')}">${icon('close')}</button></header>${goalField?`<label class="choice-search">${icon('search')}<input type="search" placeholder="${t('搜索目标或所属主目标','Search goals or parent goals')}" aria-label="${t('搜索目标','Search goals')}"></label><p class="choice-hint">${t('点目标选中 · 点箭头展开子目标','Tap a goal to select · arrows expand subgoals')}</p>`:''}<div class="choice-list"></div>`;
   choiceState=state;const update=()=>{dialog.querySelector('.choice-list').innerHTML=choiceList(state);};update();document.body.append(dialog);dialog.showModal();
@@ -275,8 +387,8 @@
    const option=event.target.closest('[data-choice-value]');if(option){const value=option.dataset.choiceValue;closeChoice();select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));enhanceChoices();}
   });
  }
- const overlayChoices=renderOverlay;renderOverlay=function(){overlayChoices();if(menu==='view'&&ui.tab==='calendar')document.querySelector('#overlay > .menu')?.insertAdjacentHTML('beforeend',menuItem('dashboard',t('数据板','Data board'),'grid','',ui.calendarView==='Dashboard'));enhanceChoices();};
- const renderWithStatistics=render;render=function(){renderWithStatistics();if(ui.tab==='calendar'&&ui.calendarView==='Dashboard'){const title=document.querySelector('#app > .screen .month-title');if(title)title.innerHTML=t('数据板','Data board')+`<small>${ui.selected}</small>`;}};
+ const overlayChoices=renderOverlay;renderOverlay=function(){overlayChoices();if(menu==='view'&&ui.tab==='calendar'){document.querySelector('#overlay > .menu')?.insertAdjacentHTML('beforeend',menuItem('dashboard',t('数据板','Data board'),'grid','',ui.calendarView==='Dashboard'));document.querySelector('#overlay > .menu [data-view="Week"]')?.insertAdjacentHTML('afterend',menuItem('clock-view',t('钟表日视图','Day clock'),'clock','',ui.calendarView==='Week'&&data.settings.dayDisplay==='clock'));}enhanceChoices();};
+ const renderWithStatistics=render;render=function(){renderWithStatistics();if(ui.tab==='calendar'&&ui.calendarView==='Dashboard'){const title=document.querySelector('#app > .screen .month-title');if(title)title.innerHTML=t('数据板','Data board')+`<small>${ui.selected}</small>`;}fitClock();};
  document.addEventListener('keydown',event=>{if(choiceState&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeChoice();}},true);
  const backBeforeChoices=window.handleNativeBack;window.handleNativeBack=()=>{if(choiceState){closeChoice();return true;}return backBeforeChoices();};
  initializeNative();refreshFocus();render();

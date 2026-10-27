@@ -22,6 +22,47 @@ const FocusCore={
  extend(session,now){const copy=this.reconcile(session,now);if(copy.status==='boundary'){copy.extended=true;copy.status='running';copy.segments.push({start:copy.wasRunning?copy.deadline:now,end:null});}return copy;},
  finish(session,now){const copy=this.reconcile(session,now);for(const segment of copy.segments)if(segment.end===null)segment.end=now;copy.status='finished';copy.finishedAt=now;return copy;},
  snap(minutes){return Math.max(0,Math.min(1440,Math.round(minutes/15)*15));},
+ nearbyPlan(items,goalId,now){
+  const candidates=items.filter(item=>item.kind==='event'&&item.taskBlock&&!item.focusActual&&!item.done&&(item.goalId===goalId||item.chooseAtStart&&item.alternativeGoalIds?.includes(goalId))).map(item=>{const [start,end]=this.range(item.planOriginal||item);return {item,start,end,distance:Math.max(start-now,now-end,0)};}).filter(entry=>Number.isFinite(entry.distance)&&entry.distance<=15*60000);
+  candidates.sort((a,b)=>a.distance-b.distance||Math.abs(a.start-now)-Math.abs(b.start-now));return candidates[0]?.item||null;
+ },
+ calendarItems(items){
+  const actuals=items.filter(item=>item.focusActual),matched=new Set(),result=[];
+  for(const item of items){
+   if(item.focusActual)continue;
+   if(item.kind!=='event'||item.allDay){result.push(item);continue;}
+   const original=item.planOriginal||item,[start,end]=this.range(original);
+   const same=actuals.filter(actual=>(actual.sourcePlanId===item.id&&(actual.goalId===item.goalId||item.chooseAtStart&&item.alternativeGoalIds?.includes(actual.goalId))||item.goalId&&actual.goalId===item.goalId)&&actual.actualStartAt<end&&actual.actualEndAt>start);
+   if(!same.length){result.push(item.planOriginal?{...item,...original}:item);continue;}
+   same.forEach(actual=>matched.add(actual.id));let remaining=[[start,end]];
+   for(const actual of same)remaining=remaining.flatMap(([a,b])=>actual.actualStartAt>=b||actual.actualEndAt<=a?[[a,b]]:[[a,Math.min(b,actual.actualStartAt)],[Math.max(a,actual.actualEndAt),b]].filter(([x,y])=>y>x));
+   for(const [a,b] of remaining){const from=this.parts(a),to=this.parts(b);result.push({...item,date:from.date,time:from.time,endDate:to.date,endTime:to.time,renderRemainder:true});}
+  }
+  for(const item of actuals){const linked=items.find(plan=>plan.id===item.sourcePlanId);result.push({...item,samePlanOverlay:matched.has(item.id)||!!linked&&(linked.goalId===item.goalId||linked.chooseAtStart&&linked.alternativeGoalIds?.includes(item.goalId))});}
+  return result;
+ },
+ validTrigger(rule){return !!rule&&['manual','goal','focus'].includes(rule.type)&&['armed','fired'].includes(rule.state)&&Number.isInteger(rule.minutes)&&rule.minutes>0&&rule.minutes<=1440&&(rule.type==='manual'?typeof rule.label==='string'&&!!rule.label.trim()&&rule.label.length<=200:typeof rule.goalId==='string'&&rule.goalId.length>0&&rule.goalId.length<=200);},
+ clockLayout(segments){
+  const ends=[-Infinity,-Infinity,-Infinity],arcs=[],groups=new Map();
+  for(const segment of [...segments].sort((a,b)=>a.start-b.start||b.end-a.end)){
+   const track=ends.findIndex(end=>segment.start>=end+4);
+   if(segment.end-segment.start>=12&&track>=0){arcs.push({...segment,track});ends[track]=segment.end;}
+   else{const key=Math.floor(segment.start/120),group=groups.get(key)||{key,start:key*120,end:(key+1)*120,segments:[]};group.segments.push(segment);groups.set(key,group);}
+  }
+  return {arcs,groups:[...groups.values()]};
+ },
+ activateTriggers(items,sessions,previous,enabled,now,manualId=null){
+  if(!enabled)return items;
+  const generated=[],previousGoals=new Map((previous?.items||[]).map(item=>[item.id,item])),previousSessions=new Map((previous?.focusSessions||[]).map(session=>[session.id,session]));
+  const result=items.map(item=>{
+   const rule=item.trigger;if(!this.validTrigger(rule)||rule.state!=='armed')return item;
+   const fires=rule.type==='manual'?item.id===manualId:!!previous&&(rule.type==='goal'?items.some(goal=>goal.id===rule.goalId&&goal.kind==='todo'&&goal.done&&previousGoals.has(goal.id)&&!previousGoals.get(goal.id).done):sessions.some(session=>session.goalId===rule.goalId&&session.status==='finished'&&previousSessions.has(session.id)&&previousSessions.get(session.id).status!=='finished'));
+   if(!fires)return item;
+   const start=this.parts(now),end=this.parts(this.stamp(start.date,start.time)+rule.minutes*60000),plan={...item,id:'trigger-'+item.id+'-'+now,date:start.date,time:start.time,endDate:end.date,endTime:end.time,done:false,triggeredBy:item.id};
+   delete plan.trigger;generated.push(plan);return {...item,trigger:{...rule,state:'fired',firedAt:now}};
+  });
+  return result.concat(generated);
+ },
  project(items,session){
   const result=items.filter(item=>item.focusId!==session.id).map(item=>({...item}));
   const goal=result.find(item=>item.id===session.goalId);
