@@ -41,7 +41,6 @@ const FocusCore={
   for(const item of actuals){const linked=items.find(plan=>plan.id===item.sourcePlanId);result.push({...item,samePlanOverlay:matched.has(item.id)||!!linked&&(linked.goalId===item.goalId||linked.chooseAtStart&&linked.alternativeGoalIds?.includes(item.goalId))});}
   return result;
  },
- validTrigger(rule){return !!rule&&['manual','goal','focus'].includes(rule.type)&&['armed','fired'].includes(rule.state)&&Number.isInteger(rule.minutes)&&rule.minutes>0&&rule.minutes<=1440&&(rule.type==='manual'?typeof rule.label==='string'&&!!rule.label.trim()&&rule.label.length<=200:typeof rule.goalId==='string'&&rule.goalId.length>0&&rule.goalId.length<=200);},
  clockLayout(segments){
   const ends=[-Infinity,-Infinity,-Infinity],arcs=[],groups=new Map();
   for(const segment of [...segments].sort((a,b)=>a.start-b.start||b.end-a.end)){
@@ -50,18 +49,6 @@ const FocusCore={
    else{const key=Math.floor(segment.start/120),group=groups.get(key)||{key,start:key*120,end:(key+1)*120,segments:[]};group.segments.push(segment);groups.set(key,group);}
   }
   return {arcs,groups:[...groups.values()]};
- },
- activateTriggers(items,sessions,previous,enabled,now,manualId=null){
-  if(!enabled)return items;
-  const generated=[],previousGoals=new Map((previous?.items||[]).map(item=>[item.id,item])),previousSessions=new Map((previous?.focusSessions||[]).map(session=>[session.id,session]));
-  const result=items.map(item=>{
-   const rule=item.trigger;if(!this.validTrigger(rule)||rule.state!=='armed')return item;
-   const fires=rule.type==='manual'?item.id===manualId:!!previous&&(rule.type==='goal'?items.some(goal=>goal.id===rule.goalId&&goal.kind==='todo'&&goal.done&&previousGoals.has(goal.id)&&!previousGoals.get(goal.id).done):sessions.some(session=>session.goalId===rule.goalId&&session.status==='finished'&&previousSessions.has(session.id)&&previousSessions.get(session.id).status!=='finished'));
-   if(!fires)return item;
-   const start=this.parts(now),end=this.parts(this.stamp(start.date,start.time)+rule.minutes*60000),plan={...item,id:'trigger-'+item.id+'-'+now,date:start.date,time:start.time,endDate:end.date,endTime:end.time,done:false,triggeredBy:item.id};
-   delete plan.trigger;generated.push(plan);return {...item,trigger:{...rule,state:'fired',firedAt:now}};
-  });
-  return result.concat(generated);
  },
  project(items,session){
   const result=items.filter(item=>item.focusId!==session.id).map(item=>({...item}));

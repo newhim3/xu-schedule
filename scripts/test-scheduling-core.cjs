@@ -14,13 +14,4 @@ assert.equal(stored.find(item=>item.id==='plan').planOriginal.endTime,'14:00','V
 const different=F.finish(F.start({id:'other',goalId:'english'},at('13:10')),at('13:30'));
 assert.equal(F.calendarItems(F.project([plan],different)).find(item=>item.id==='plan').time,'13:00','Different goals retain the old/new comparison');
 console.log('PASS nearby stable-goal matching, partial coverage, paused gaps and original preservation');
-const rule={id:'rule',kind:'event',title:'阅读',goalId:'read',date:'',trigger:{type:'focus',goalId:'math',label:'',minutes:25,state:'armed'}};
-const waiting={...session,status:'paused'},finished={...session,status:'finished'};
-const activated=F.activateTriggers([rule],[finished],{items:[],focusSessions:[waiting]},true,at('13:50'));
-assert.equal(activated.find(item=>item.triggeredBy==='rule').endTime,'14:15');
-assert.equal(F.activateTriggers(activated,[finished],{items:[rule],focusSessions:[waiting]},true,at('13:51')).length,2,'Trigger is one-off');
-assert.equal(F.activateTriggers([rule],[finished],{items:[],focusSessions:[]},true,at('13:50')).length,1,'Importing finished sessions must not fire waiting rules');
-assert.equal(F.activateTriggers([rule],[finished],{items:[],focusSessions:[waiting]},false,at('13:50')).length,1,'Off disables automatic triggers');
-const invalid={...rule,trigger:{...rule.trigger,minutes:-2}};assert.equal(F.validTrigger(invalid.trigger),false);
-assert.throws(()=>require('../replica/planner.js').mergeBackup({items:[],settings:{}},{items:[invalid]}),'Invalid trigger backup rejected');
-console.log('PASS focus-finish trigger, one-off execution, import isolation and invalid backup rejection');
+assert.equal(F.activateTriggers,undefined,'Event-trigger execution is removed');

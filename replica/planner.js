@@ -27,7 +27,6 @@ const GoalCore={
   for(const source of incoming.items){
    if(!source||!safeId(source.id)||ids.has(source.id)||!['todo','event'].includes(source.kind)||typeof source.title!=='string'||source.title.length>1000||!validDate(source.date)||source.endDate!==undefined&&!validDate(source.endDate)||!validTime(source.time)||!validTime(source.endTime)||source.color&&!/^#[0-9a-f]{6}$/i.test(source.color)||source.notes!==undefined&&(typeof source.notes!=='string'||source.notes.length>20000)||source.importance!==undefined&&(!Number.isInteger(source.importance)||source.importance<0||source.importance>4)||source.estimatedMinutes!=null&&(!Number.isFinite(source.estimatedMinutes)||source.estimatedMinutes<=0||source.estimatedMinutes>6000000)||source.goalId!=null&&!safeId(source.goalId)||source.parentId!=null&&!safeId(source.parentId))fail();
    if(source.alternativeGoalIds!==undefined&&(!Array.isArray(source.alternativeGoalIds)||source.alternativeGoalIds.length>100||!source.alternativeGoalIds.every(safeId)||new Set(source.alternativeGoalIds).size!==source.alternativeGoalIds.length)||source.chooseAtStart!==undefined&&typeof source.chooseAtStart!=='boolean')fail();
-   if(source.trigger!==undefined&&!plannerFocus.validTrigger(source.trigger))fail();
    ids.add(source.id);const item=JSON.parse(JSON.stringify(source));item.importance=Number.isInteger(item.importance)?item.importance:item.priority?4:0;item.calendar=typeof item.calendar==='string'&&item.calendar.length<=100?item.calendar:'Default';item.time=item.time||'';item.done=!!item.done;records.push(item);
   }
   const insights=incoming.insights===undefined?[]:incoming.insights;if(!Array.isArray(insights)||insights.length>10000)fail();
@@ -66,7 +65,7 @@ if(typeof document!=='undefined'){
  const legacyOpenEditor=openEditor,legacyEditorHTML=editorHTML,legacySaveGoal=saveDraft;
  openEditor=id=>{
   const item=data.items.find(x=>x.id===id);
-  plannerEditorMode=item?(item.kind==='todo'?'goal':item.taskBlock?'session':'event'):(ui.tab==='calendar'?'session':'goal');
+  plannerEditorMode=item?(item.kind==='todo'?'goal':item.taskBlock?'session':'event'):(ui.tab==='calendar'?'event':'goal');
   legacyOpenEditor(id);
   draft.importance=Number.isInteger(draft.importance)?draft.importance:draft.priority?4:0;
   draft.estimateHours=draft.estimatedMinutes?draft.estimatedMinutes/60:'';
@@ -86,7 +85,7 @@ if(typeof document!=='undefined'){
  };
  function scheduleEditorHTML(){
   const goals=data.items.filter(x=>x.kind==='todo');
-  return editorHead()+editorTabs()+`<div class="edit-card schedule-dates"><div class="time-fields"><label>${tr('开始','Start')}<input type="date" aria-label="Start date" data-draft="date" value="${esc(draft.date||ui.selected)}"><input type="time" aria-label="Start time" data-draft="time" value="${esc(draft.time||'08:30')}"></label><label>${tr('结束','End')}<input type="date" aria-label="End date" data-draft="endDate" value="${esc(draft.endDate||draft.date||ui.selected)}"><input type="time" aria-label="End time" data-draft="endTime" value="${esc(draft.endTime||'09:30')}"></label></div></div>${plannerEditorMode==='session'?`<div class="edit-card"><label class="row"><span class="label">${tr('执行哪个目标','Goal to work on')}</span><select data-draft="goalId" aria-label="Goal"><option value="">${tr('新建一个目标','Create a new goal')}</option>${goals.map(goal=>`<option value="${esc(goal.id)}" ${draft.goalId===goal.id?'selected':''}>${goal.parentId?'↳ ':''}${esc(goal.title)}</option>`).join('')}</select>${icon('down','chevron')}</label><p class="note">${tr('选择已有目标或子目标；留空则用任务名称创建目标。','Select a goal or subgoal, or create one with this task title.')}</p></div>`:''}`+titleField()+`<p class="form-error" id="form-error"></p><div class="edit-card">${importanceField()}${rowSelect('Reminder','reminder',['None','At time of event','5 minutes before','15 minutes before','30 minutes before','1 day before'],draft.reminder)}${rowToggle('Alarm · 闹钟','alarm',draft.alarm)}</div>`+notesField()+(data.items.some(x=>x.id===draft.id)?`<button class="danger-button full-width" data-action="delete-item">${tr('删除任务安排','Delete scheduled item')}</button>`:'');
+  return editorHead()+editorTabs()+`<div class="edit-card schedule-dates"><div class="time-fields"><label>${tr('开始','Start')}<input type="date" aria-label="Start date" data-draft="date" value="${esc(draft.date||ui.selected)}"><input type="time" aria-label="Start time" data-draft="time" value="${esc(draft.time||'08:30')}"></label><label>${tr('结束','End')}<input type="date" aria-label="End date" data-draft="endDate" value="${esc(draft.endDate||draft.date||ui.selected)}"><input type="time" aria-label="End time" data-draft="endTime" value="${esc(draft.endTime||'09:30')}"></label></div></div>${plannerEditorMode==='session'?`<div class="edit-card"><label class="row"><span class="label">${tr('执行哪个目标','Goal to work on')}</span><select data-draft="goalId" aria-label="Goal"><option value="">${tr('选择任务目标','Choose an existing goal')}</option>${goals.map(goal=>`<option value="${esc(goal.id)}" ${draft.goalId===goal.id?'selected':''}>${goal.parentId?'↳ ':''}${esc(goal.title)}</option>`).join('')}</select>${icon('down','chevron')}</label><p class="note">${tr('选择任务清单中已有的目标或子目标；日程仅作提醒，不会创建目标。','Choose an existing goal or subgoal. Calendar reminders never create goals.')}</p></div>`:''}`+titleField()+`<p class="form-error" id="form-error"></p><div class="edit-card">${importanceField()}${rowSelect('Reminder','reminder',['None','At time of event','5 minutes before','15 minutes before','30 minutes before','1 day before'],draft.reminder)}${rowToggle('Alarm · 闹钟','alarm',draft.alarm)}</div>`+notesField()+(data.items.some(x=>x.id===draft.id)?`<button class="danger-button full-width" data-action="delete-item">${tr('删除任务安排','Delete scheduled item')}</button>`:'');
  }
  actions['editor-kind']=element=>{
   plannerEditorMode=element.dataset.kind==='event'?'event':ui.tab==='calendar'?'session':'goal';
@@ -108,10 +107,7 @@ if(typeof document!=='undefined'){
   if(!GoalCore.durationMinutes(draft)){$('#form-error').textContent=tr('结束时间必须晚于开始时间','End must be after start');return;}
   const previous=data.items.map(x=>({...x}));
   draft.kind='event';draft.taskBlock=plannerEditorMode==='session';
-  if(draft.taskBlock&&!data.items.some(x=>x.kind==='todo'&&x.id===draft.goalId)){
-   const goal={id:uid(),kind:'todo',title:draft.title.trim(),date:'',time:'',calendar:draft.calendar||'Default',color:draft.color,importance:draft.importance,priority:draft.priority,parentId:null,done:false,notes:draft.notes||'',repeat:'Once',reminder:'None'};
-   data.items.push(goal);draft.goalId=goal.id;
-  }
+  if(draft.taskBlock&&!data.items.some(x=>x.kind==='todo'&&x.id===draft.goalId)){$('#form-error').textContent=tr('请选择任务清单中已有的目标','Choose an existing goal from Tasks');return;}
   if(!draft.taskBlock)delete draft.goalId;
   if(draft.done&&!GoalCore.canComplete(draft)){draft.done=false;delete draft.completedAt;}
   legacySaveGoal();if(panel)data.items=previous;

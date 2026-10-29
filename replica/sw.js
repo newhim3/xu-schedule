@@ -1,4 +1,4 @@
-const CACHE='calendar-replica-v12';
+const CACHE='calendar-replica-v13';
 self.addEventListener('install',e=>{e.waitUntil(fetch('./web-assets.json').then(response=>response.json()).then(assets=>caches.open(CACHE).then(cache=>cache.addAll(['./',...assets.map(name=>'./'+name)]))));self.skipWaiting()});
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('calendar-replica-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==location.origin)return;e.respondWith(fetch(e.request).then(response=>{if(response.ok){const clone=response.clone();caches.open(CACHE).then(c=>c.put(e.request,clone))}return response}).catch(()=>caches.match(e.request).then(cached=>cached||new Response('Offline',{status:503}))));});

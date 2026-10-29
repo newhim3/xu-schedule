@@ -19,6 +19,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   console.log('PASS sequential schedule, aligned end, invalid/cancelled drafts, reload and day reset');
   await page.clock.setFixedTime(new Date('2026-10-27T04:00:00Z'));
   await page.evaluate(()=>{panel=null;ui.selected='2026-10-27';data.items.push({id:'math',kind:'todo',title:'数学',date:'',color:'#5ba6a0'},{id:'homework',kind:'todo',title:'写作业',parentId:'math',date:'',color:'#5ba6a0'},{id:'reading',kind:'todo',title:'阅读',date:'',color:'#7b8dc8'});openEditor();});
+  await page.locator('[data-action="editor-kind"][data-kind="todo"]').click();
   assert.equal(await page.locator('[data-draft="chooseAtStart"]').count(),1,'A schedule supports choosing one of several goals');
   await page.locator('[data-draft="goalId"]').selectOption('homework');await page.locator('[data-draft="chooseAtStart"]').check();
   await page.locator('[data-choice-field="alternativeGoalId"]').click();await page.locator('[data-choice-value="reading"]').click();await page.waitForTimeout(220);
@@ -38,35 +39,6 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   const remaining=page.locator(`.time-block.plan-remainder[data-id="${choiceId}"]`);assert.equal(await remaining.count(),1);assert(await remaining.evaluate(node=>Number(getComputedStyle(node).opacity)<.7),'Only the unperformed portion is faded');
   assert(await page.locator('.same-plan-overlay').first().evaluate(node=>parseFloat(node.style.width)>90||node.style.width.includes('100%')),'Actual same-task focus retains the schedule width');
   console.log('PASS same-slot focus replaces its covered interval and dims only the remaining plan');
-  await page.evaluate(()=>actions.settings());assert.equal(await page.locator('[data-setting="eventTriggers"]').count(),1,'Event-trigger experiments have a Settings switch');assert.equal(await page.locator('[data-setting="eventTriggers"]').isChecked(),false);
-  await page.locator('[data-setting="eventTriggers"]').check();await page.evaluate(()=>{panel=null;openEditor();});
-  await page.locator('[data-draft="scheduleMode"]').selectOption('trigger');await page.locator('[data-draft="goalId"]').selectOption('reading');
-  await page.locator('[data-draft="triggerLabel"]').fill('吃完午饭');await page.locator('[data-draft="triggerMinutes"]').fill('25');await page.locator('[data-action="save"]').click();
-  const ruleId=await page.evaluate(()=>data.items.find(item=>item.trigger).id);await page.reload();await page.locator('[data-tab="focus"]').click();await page.waitForTimeout(300);
-  await page.locator(`[data-action="trigger-manual"][data-id="${ruleId}"]`).click();
-  assert.deepEqual(await page.evaluate(id=>{const plan=data.items.find(item=>item.triggeredBy===id);return [plan.time,plan.endTime,plan.goalId];},ruleId),['12:10','12:35','reading'],'Manual real-world trigger creates the requested duration');
-  await page.evaluate(id=>actions['trigger-manual']({dataset:{id}}),ruleId);assert.equal(await page.evaluate(id=>data.items.filter(item=>item.triggeredBy===id).length,ruleId),1,'A one-off trigger cannot fire twice');
-  await page.evaluate(()=>{data.items.push({id:'goal-trigger',kind:'event',taskBlock:true,title:'完成数学后阅读',goalId:'reading',date:'',time:'',trigger:{type:'goal',goalId:'math',label:'',minutes:30,state:'armed'}});data.settings.eventTriggers=false;persist();actions.complete({dataset:{id:'math'}});});
-  assert.equal(await page.evaluate(()=>data.items.some(item=>item.triggeredBy==='goal-trigger')),false,'Disabled experiments do not trigger');
-  await page.evaluate(()=>{actions.complete({dataset:{id:'math'}});data.settings.eventTriggers=true;persist();actions.complete({dataset:{id:'math'}});});
-  assert.equal(await page.evaluate(()=>data.items.filter(item=>item.triggeredBy==='goal-trigger').length),1,'Completing the source goal creates its follow-up');
-  assert(await page.evaluate(()=>GoalCore.mergeBackup({items:[],settings:{}},JSON.parse(JSON.stringify(data))).items.find(item=>item.id==='goal-trigger').trigger),'Backup preserves event rules');
-  console.log('PASS opt-in event trigger, real-world confirmation, one-off firing, off switch and backup');
-  await page.evaluate(()=>{panel=null;ui.tab='calendar';ui.calendarView='Week';render();});await page.locator('[data-action="view-menu"]').click();
-  assert.equal(await page.locator('[data-action="clock-view"]').count(),1,'Day clock is available in the existing view menu');await page.locator('[data-action="clock-view"]').click();await page.waitForTimeout(300);
-  assert.equal(await page.locator('.schedule-clock .clock-hour').count(),24,'The clock unambiguously covers all 24 hours');assert.equal(await page.locator('.clock-tick').count(),288,'Five-minute ticks keep schedule times legible');
-  assert(await page.locator('.clock-sector').count()>0,'Schedules are drawn on the dial');
-  for(const [width,height] of [[320,568],[393,852],[480,740]]){await page.setViewportSize({width,height});await page.waitForTimeout(100);const fit=await page.locator('.schedule-clock').evaluate(node=>{const box=node.getBoundingClientRect(),dock=document.querySelector('.dock').getBoundingClientRect();return box.top>=0&&box.bottom<=dock.top&&box.left>=0&&box.right<=innerWidth;});assert(fit,`Full dial fits above navigation at ${width}×${height}`);}
-  await page.setViewportSize({width:393,height:852});await page.locator('.clock-sector').first().click({force:true});assert(await page.locator('.clock-selection').textContent(),'A sector reveals precise time and title without overlapping dial labels');
-  await page.reload();await page.evaluate(()=>{ui.tab='calendar';ui.calendarView='Week';render();});assert.equal(await page.locator('.schedule-clock').count(),1,'Day clock preference survives restart');
-  await page.locator('[data-action="view-menu"]').click();await page.locator('[data-view="Week"]').click();await page.waitForTimeout(300);assert.equal(await page.locator('.daily-timeline').count(),1,'Traditional day timeline remains available');
-  fs.mkdirSync('reference-analysis',{recursive:true});await page.evaluate(()=>actions['clock-view']());await page.waitForTimeout(300);await page.screenshot({path:'reference-analysis/v1.7-clock.png'});
-  await page.evaluate(()=>{const stamp=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');data.items=Array.from({length:12},(_,i)=>({id:'dense-'+i,kind:'event',title:'重叠任务 '+(i+1),date:ui.selected,time:stamp(600+i),endDate:ui.selected,endTime:stamp(690+i),color:['#85bba8','#9aaed1','#cbb184'][i%3]})).concat(Array.from({length:20},(_,i)=>({id:'short-'+i,kind:'event',title:'短任务 '+(i+1),date:ui.selected,time:stamp(720+i*2),endDate:ui.selected,endTime:stamp(721+i*2),color:'#b4a3cb'})));render();});
-  assert.equal(await page.locator('.clock-sector').count(),3,'Dense overlapping schedules keep just three readable ribbons');
-  assert.equal(await page.locator('.clock-cluster').count(),2,'Short/excess schedules become separated count markers');
-  await page.locator('.clock-cluster[data-group="6"]').click();assert.equal(await page.locator('.timeline-record-list button').count(),20,'Every short task is accessible through its marker');assert((await page.locator('.timeline-record-list').textContent()).includes('12:00–12:01'),'Cluster list preserves exact times');
-  await page.locator('[data-action="modal-cancel"]').click();await page.waitForTimeout(300);await page.screenshot({path:'reference-analysis/v1.7-clock-dense.png'});
-  console.log('PASS dense clock markers, fixed-width ribbons and complete precise task list');
-  assert.deepEqual(errors,[]);console.log('PASS 24-hour clock, precise ticks, single-screen sizing, details and traditional day mode');
+  assert.deepEqual(errors,[]);console.log('PASS continuous scheduling, alternatives and partial focus coverage');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

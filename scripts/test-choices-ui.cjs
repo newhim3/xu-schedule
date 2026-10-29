@@ -10,6 +10,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   await page.locator('[data-action="close-menu"]').click();
   await page.evaluate(()=>{data.items=[{id:'math',kind:'todo',title:'离散数学',date:'',calendar:'Default',color:'#5ba6a0',estimatedMinutes:600},{id:'english',kind:'todo',title:'英语',date:'',calendar:'Default',color:'#7b8dc8'},{id:'math-work',parentId:'math',kind:'todo',title:'写作业',date:'',calendar:'Default',color:'#5ba6a0'},{id:'english-work',parentId:'english',kind:'todo',title:'写作业',date:'',calendar:'Default',color:'#7b8dc8'}];persist();render();});
   await page.locator('[data-action="new"]').click();await page.waitForTimeout(280);
+  await page.locator('[data-action="editor-kind"][data-kind="todo"]').click();
   assert.equal(await page.locator('[data-choice-field="goalId"]').count(),1,'Goal field uses the new choice surface');await page.locator('[data-choice-field="goalId"]').click();
   assert.equal(await page.locator('dialog.choice-sheet[open]').count(),1);assert.equal(await page.locator('[data-choice-value="math-work"]').count(),0,'Subgoals are not mixed into the root list');
   await page.locator('[data-choice-expand="math"]').click();const mathWork=page.locator('[data-choice-value="math-work"]');assert((await mathWork.textContent()).includes('离散数学'),'Subgoal displays its parent origin');fs.mkdirSync('reference-analysis',{recursive:true});await page.screenshot({path:'reference-analysis/v1.4-goal-picker.png'});await mathWork.click();

@@ -16,7 +16,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   assert((await page.locator(`.task[data-task-id="${goalId}"]`).textContent()).includes('每天推进一个知识点'),'Notes appear under goal title');
   assert.equal(await page.locator(`.task[data-task-id="${goalId}"] .goal-progress`).count(),1,'Optional estimate creates a progress bar');
   assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),0);
-  await tab('calendar');await page.waitForTimeout(300);await action('new');
+  await tab('calendar');await page.waitForTimeout(300);await action('new');await page.locator('[data-action="editor-kind"][data-kind="todo"]').click();
   await page.locator('[data-draft="time"]').fill('08:00');await page.locator('[data-draft="endTime"]').fill('10:00');await page.locator('[data-draft="goalId"]').selectOption(goalId);await action('save');await page.waitForTimeout(300);
   const sessionId=await page.evaluate(id=>data.items.find(x=>x.goalId===id).id,goalId);
   const finish=id=>page.locator(`.time-block[data-id="${id}"] [data-action="finish-session"]`);
@@ -24,7 +24,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   await finish(sessionId).click();await page.waitForTimeout(260);assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),120);
   await tab('todos');await page.waitForTimeout(260);assert((await page.locator(`.task[data-task-id="${goalId}"]`).textContent()).includes('20%'),'Calendar completion updates goal progress');
   await tab('calendar');await page.waitForTimeout(260);await finish(sessionId).click();await page.waitForTimeout(260);assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),0,'Undo synchronizes goal time');
-  await action('new');await page.locator('[data-draft="time"]').fill('13:00');await page.locator('[data-draft="endTime"]').fill('14:00');await page.locator('[data-draft="goalId"]').selectOption(goalId);await action('save');await page.waitForTimeout(260);
+  await action('new');await page.locator('[data-action="editor-kind"][data-kind="todo"]').click();await page.locator('[data-draft="time"]').fill('13:00');await page.locator('[data-draft="endTime"]').fill('14:00');await page.locator('[data-draft="goalId"]').selectOption(goalId);await action('save');await page.waitForTimeout(260);
   const futureId=await page.evaluate(id=>data.items.find(x=>x.goalId===id&&x.time==='13:00').id,goalId);assert(await finish(futureId).isDisabled(),'Future task stays locked');
   await page.evaluate(id=>actions['finish-session']({dataset:{id}}),futureId);assert.equal(await page.evaluate(id=>data.items.find(x=>x.id===id).done,futureId),false,'Direct action cannot bypass gate');
   await page.clock.setFixedTime(new Date('2026-10-18T06:01:00Z'));await page.waitForTimeout(1200);assert(!(await finish(futureId).isDisabled()),'End time automatically unlocks checkbox');await finish(futureId).click();await page.waitForTimeout(260);assert.equal(await page.evaluate(id=>GoalCore.goalMinutes(data.items,id),goalId),60);
