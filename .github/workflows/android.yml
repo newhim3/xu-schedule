@@ -59,6 +59,8 @@ jobs:
       - run: node scripts/test-statistics-ui.cjs
       - run: node scripts/test-scheduling-ui.cjs
       - run: node scripts/test-calendar-revision.cjs
+      - run: node scripts/test-schedule-editor-memory.cjs
+      - run: node scripts/test-timetable-readable.cjs
       - run: node scripts/test-goal-ui.cjs
       - run: node scripts/test-planner.cjs
       - run: node scripts/test-refinements.cjs
