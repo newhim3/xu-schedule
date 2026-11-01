@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),F=require('../replica/focus-core.js');
+const at=time=>F.stamp('2026-11-01',time);
+let session=F.start({id:'s',goalId:'g'},at('09:00'));session=F.pause(session,at('09:20'));session=F.resume(session,at('09:40'));
+assert.equal(typeof F.finishWithDuration,'function','A forgotten timer needs a duration correction');
+const corrected=F.finishWithDuration(session,30*60000,at('12:00'));
+assert.equal(F.elapsed(corrected,at('12:00')),30*60000);assert.deepEqual(corrected.segments,[{start:at('09:00'),end:at('09:20')},{start:at('09:40'),end:at('09:50')}],'Keep genuine pause gaps when shortening the session');assert(F.validate(corrected));
+assert.throws(()=>F.finishWithDuration(session,0,at('12:00')));assert.throws(()=>F.finishWithDuration(session,999*60000,at('12:00')));
+const plan={id:'p',kind:'event',taskBlock:true,goalId:'g',date:'2026-11-01',time:'10:00',endTime:'11:00'};
+const old=F.project([plan],F.finish(session,at('12:00'))),updated=F.project(old,corrected);
+assert.equal(updated.filter(item=>item.focusActual).length,2);assert(!updated.find(item=>item.id==='p').focusCoveredBy?.length,'A removed tail must stop darkening plans it no longer covers');
+assert.equal(F.dailyActual(updated,[corrected],at('12:00'))['2026-11-01'],30);assert.equal(F.statistics(updated,[corrected],'2026-11-01',at('12:00')).minutes,30);
+console.log('PASS focus correction trims actual intervals, preserves pauses, replaces prior projections and updates all statistics');

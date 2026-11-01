@@ -21,7 +21,12 @@ const FocusCore={
  resume(session,now){const copy=this.reconcile(session,now);if(copy.status==='paused'){copy.segments.push({start:now,end:null});copy.status='running';}return copy;},
  extend(session,now){const copy=this.reconcile(session,now);if(copy.status==='boundary'){copy.extended=true;copy.status='running';copy.segments.push({start:copy.wasRunning?copy.deadline:now,end:null});}return copy;},
  finish(session,now){const copy=this.reconcile(session,now);for(const segment of copy.segments)if(segment.end===null)segment.end=now;copy.status='finished';copy.finishedAt=now;return copy;},
+ finishWithDuration(session,milliseconds,now){
+  const copy=this.finish(session,now),elapsed=this.elapsed(copy,now);if(!Number.isSafeInteger(milliseconds)||milliseconds<=0||milliseconds>elapsed)throw Error('Duration outside recorded focus');
+  let remaining=milliseconds;copy.segments=copy.segments.flatMap(part=>{const length=Math.min(remaining,part.end-part.start);remaining-=length;return length>0?[{start:part.start,end:part.start+length}]:[];});copy.correctedFrom=elapsed;copy.correctedAt=now;return copy;
+ },
  snap(minutes){return Math.max(0,Math.min(1440,Math.round(minutes/15)*15));},
+ spiralPoint(minute,offset=0){const radius=64+84*Math.max(0,Math.min(1440,minute))/1440+offset,angle=minute/720*Math.PI*2-Math.PI/2;return {x:200+Math.cos(angle)*radius,y:200+Math.sin(angle)*radius,radius};},
  nearbyPlan(items,goalId,now){
   const candidates=items.filter(item=>item.kind==='event'&&item.taskBlock&&!item.focusActual&&!item.done&&(item.goalId===goalId||item.chooseAtStart&&item.alternativeGoalIds?.includes(goalId))).map(item=>{const [start,end]=this.range(item.planOriginal||item);return {item,start,end,distance:Math.max(start-now,now-end,0)};}).filter(entry=>Number.isFinite(entry.distance)&&entry.distance<=15*60000);
   candidates.sort((a,b)=>a.distance-b.distance||Math.abs(a.start-now)-Math.abs(b.start-now));return candidates[0]?.item||null;
@@ -62,8 +67,8 @@ const FocusCore={
    if(item.kind!=='event'||item.focusActual||item.allDay)continue;
    const original=item.planOriginal||{date:item.date,time:item.time,endDate:item.endDate||item.date,endTime:item.endTime};
    const [start,end]=this.range(original);
-   const overlaps=closed.some(part=>part.start<end&&part.end>start);
-   if(overlaps){item.planOriginal=original;item.focusCoveredBy=[...new Set([...(item.focusCoveredBy||[]),session.id])];}
+   const covered=result.filter(actual=>actual.focusActual&&actual.actualStartAt<end&&actual.actualEndAt>start);
+   if(covered.length){item.planOriginal=original;item.focusCoveredBy=[...new Set(covered.map(actual=>actual.focusId))];}else delete item.focusCoveredBy;
    if(item.id===session.planId&&closed.length){item.planOriginal=original;const actualEnd=closed.at(-1).end;const endParts=this.parts(actualEnd);item.endDate=endParts.date;item.endTime=endParts.time;item.actualStartAt=closed[0].start;item.actualEndAt=actualEnd;}
   }
   return result;

@@ -48,6 +48,10 @@ public class MainActivity extends Activity {
     private static final String UPDATE_MANIFEST = "https://raw.githubusercontent.com/newhim3/xu-schedule/main/update.json";
     private WebView webView;
     private File pendingApk;
+    private AlertDialog updateDialog;
+    private boolean downloadingUpdate;
+    private volatile HttpURLConnection activeUpdateConnection;
+    private final java.util.concurrent.atomic.AtomicBoolean cancelUpdate = new java.util.concurrent.atomic.AtomicBoolean(false);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private String text(String chinese, String english) { return PlannerLanguage.text(this, chinese, english); }
 
@@ -130,17 +134,34 @@ public class MainActivity extends Activity {
 
     private void downloadAndInstall(String apkUrl, String expectedHash) {
         if (apkUrl == null || !apkUrl.startsWith("https://github.com/newhim3/xu-schedule/releases/download/")) return;
-        Toast.makeText(this, text("发现新版本，正在下载…", "Downloading update…"), Toast.LENGTH_LONG).show();
+        if(downloadingUpdate){if(updateDialog!=null)updateDialog.show();return;}
+        downloadingUpdate=true;cancelUpdate.set(false);
+        android.widget.LinearLayout downloadLayout=new android.widget.LinearLayout(this);downloadLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad=(int)(24*getResources().getDisplayMetrics().density);downloadLayout.setPadding(pad,pad/2,pad,pad);
+        ProgressBar downloadBar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);downloadBar.setMax(100);downloadBar.setIndeterminate(true);
+        android.widget.TextView downloadText=new android.widget.TextView(this);downloadText.setText(text("正在连接下载…","Connecting…"));downloadText.setPadding(0,pad/2,0,0);
+        downloadLayout.addView(downloadBar,new android.widget.LinearLayout.LayoutParams(-1,pad));downloadLayout.addView(downloadText);
+        updateDialog=new AlertDialog.Builder(this).setTitle(text("下载新版本","Download update")).setView(downloadLayout).setCancelable(false).setNegativeButton(text("取消下载","Cancel download"),(dialog,which)->cancelUpdateTransfer()).create();updateDialog.show();
         executor.execute(() -> {
+            File partial=null;boolean verified=false;
             try {
+                if(cancelUpdate.get())throw new java.io.IOException("Cancelled");
                 File dir = new File(getCacheDir(), "updates"); dir.mkdirs();
                 File apk = new File(dir, "xu-schedule-update.apk");
+                partial=apk;
                 HttpURLConnection connection = (HttpURLConnection) new URL(apkUrl).openConnection();
+                activeUpdateConnection=connection;
                 connection.setConnectTimeout(10000); connection.setReadTimeout(30000);
-                InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(apk);
+                try(InputStream input=connection.getInputStream();FileOutputStream output=new FileOutputStream(apk)){
+                    long total;try{total=Long.parseLong(connection.getHeaderField("Content-Length"));}catch(Exception ignored){total=-1;}
+                    UpdateTransfer.copy(input,output,total,new UpdateTransfer.Listener(){long last;
+                        public boolean cancelled(){return cancelUpdate.get()||Thread.currentThread().isInterrupted();}
+                        public void progress(long done,long size){long now=android.os.SystemClock.elapsedRealtime();if(done>0&&done!=size&&now-last<120)return;last=now;runOnUiThread(()->{if(isFinishing()||isDestroyed()||cancelUpdate.get())return;downloadBar.setIndeterminate(size<=0);if(size>0)downloadBar.setProgress((int)Math.min(100,done*100/size));String amount=String.format(java.util.Locale.US,"%.2f MB",done/1048576.0);downloadText.setText(size>0?(int)Math.min(100,done*100/size)+"% · "+amount+" / "+String.format(java.util.Locale.US,"%.2f MB",size/1048576.0):amount);});}
+                    });
+                }finally{connection.disconnect();activeUpdateConnection=null;}
+                if(cancelUpdate.get())throw new java.io.IOException("Cancelled");
+                runOnUiThread(()->{if(!isDestroyed()){downloadBar.setIndeterminate(true);downloadText.setText(text("下载完成，正在校验安装包…","Download complete. Verifying…"));}});
                 byte[] buffer = new byte[8192]; int read;
-                while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-                output.close(); input.close(); connection.disconnect();
                 if(expectedHash != null && !expectedHash.isEmpty()) {
                     java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");
                     try(java.io.FileInputStream hashInput=new java.io.FileInputStream(apk)){while((read=hashInput.read(buffer))!=-1)digest.update(buffer,0,read);}
@@ -156,8 +177,10 @@ public class MainActivity extends Activity {
                     apk.delete();
                     throw new SecurityException("Invalid update package");
                 }
-                runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) installApk(apk); });
-            } catch (Exception e) { runOnUiThread(() -> Toast.makeText(this, text("新版本下载失败，请稍后重试", "Download failed. Please try again."), Toast.LENGTH_SHORT).show()); }
+                if(cancelUpdate.get())throw new java.io.IOException("Cancelled");verified=true;
+                runOnUiThread(() -> {downloadingUpdate=false;if(updateDialog!=null){updateDialog.dismiss();updateDialog=null;}if (!isFinishing() && !isDestroyed()&&!cancelUpdate.get()) installApk(apk); });
+            } catch (Exception e) { runOnUiThread(() -> {downloadingUpdate=false;if(updateDialog!=null){updateDialog.dismiss();updateDialog=null;}if(!isFinishing()&&!isDestroyed()&&!cancelUpdate.get())Toast.makeText(this, text("新版本下载失败，请稍后重试", "Download failed. Please try again."), Toast.LENGTH_SHORT).show();}); }
+            finally{if(!verified&&partial!=null)partial.delete();}
         });
     }
 
@@ -190,7 +213,8 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override protected void onDestroy() { executor.shutdownNow(); reminderExecutor.shutdownNow(); if (webView != null) webView.destroy(); super.onDestroy(); }
+    private void cancelUpdateTransfer(){cancelUpdate.set(true);HttpURLConnection connection=activeUpdateConnection;if(connection!=null)new Thread(connection::disconnect,"cancel-update").start();}
+    @Override protected void onDestroy() {cancelUpdateTransfer();if(updateDialog!=null){updateDialog.dismiss();updateDialog=null;}executor.shutdownNow(); reminderExecutor.shutdownNow(); if (webView != null) webView.destroy(); super.onDestroy(); }
     @Override public void onBackPressed() { if(webView!=null)webView.evaluateJavascript("window.handleNativeBack && window.handleNativeBack()",result->{if(!"true".equals(result))MainActivity.super.onBackPressed();});else super.onBackPressed(); }
     private void updatePermissionStatus() {
         if(webView!=null&&!isDestroyed())webView.evaluateJavascript("window.onNativeReminderStatus && window.onNativeReminderStatus("+ReminderScheduler.status(this).toString()+")",null);

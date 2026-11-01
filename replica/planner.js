@@ -242,7 +242,7 @@ if(typeof document!=='undefined'){
   return template.innerHTML;
  };
  actions['finish-session']=element=>{
-  const item=data.items.find(x=>x.id===element.dataset.id);if(!item||item.kind!=='event')return;
+  const item=data.items.find(x=>x.id===element.dataset.id);if(!item||item.kind!=='event'||item.focusActual)return;
   if(!item.done&&!GoalCore.canComplete(item)){toast(tr('任务结束后才能勾选','Wait until the task ends'));return;}
   const previous={done:item.done,completedAt:item.completedAt};item.done=!item.done;
   if(item.done)item.completedAt=new Date().toISOString();else delete item.completedAt;
@@ -251,7 +251,7 @@ if(typeof document!=='undefined'){
  };
  function refreshSessionGates(){
   if(document.hidden)return;
-  for(const element of document.querySelectorAll('[data-action="finish-session"]')){const item=data.items.find(x=>x.id===element.dataset.id);if(item)element.disabled=!item.done&&!GoalCore.canComplete(item);}
+  for(const element of document.querySelectorAll('[data-action="finish-session"]')){const item=data.items.find(x=>x.id===element.dataset.id);if(item)element.disabled=!!item.focusActual||!item.done&&!GoalCore.canComplete(item);}
  }
  setInterval(refreshSessionGates,1000);document.addEventListener('visibilitychange',refreshSessionGates);
  // Completed sessions remain visible so their credited time can be reviewed or undone.

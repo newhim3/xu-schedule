@@ -32,6 +32,7 @@ jobs:
       - run: node scripts/test-statistics-core.cjs
       - run: node scripts/test-scheduling-core.cjs
       - run: node scripts/test-clock-density.cjs
+      - run: node scripts/test-focus-correction.cjs
       - run: gradle -p android-webview --no-daemon assembleDebug assembleRelease testDebugUnitTest lintDebug
       - uses: actions/upload-artifact@v4
         if: always()
@@ -61,6 +62,7 @@ jobs:
       - run: node scripts/test-calendar-revision.cjs
       - run: node scripts/test-schedule-editor-memory.cjs
       - run: node scripts/test-timetable-readable.cjs
+      - run: node scripts/test-spiral-focus-ui.cjs
       - run: node scripts/test-goal-ui.cjs
       - run: node scripts/test-planner.cjs
       - run: node scripts/test-refinements.cjs

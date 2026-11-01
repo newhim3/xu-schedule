@@ -30,7 +30,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   assert(await page.locator('[data-action="focus-start"]').isDisabled(),'Choose an alternative before starting');
   await page.locator('[data-action="focus-plan-goal"][data-id="reading"]').click();await page.locator('[data-action="focus-start"]').click();
   assert.equal(await page.evaluate(()=>data.focusSessions.at(-1).goalId),'reading','Only the chosen alternative receives focus');
-  await page.clock.setFixedTime(new Date('2026-10-27T04:10:00Z'));await page.locator('[data-action="focus-finish"]').click();
+  await page.clock.setFixedTime(new Date('2026-10-27T04:10:00Z'));await page.locator('[data-action="focus-finish-options"]').click();await page.locator('[data-action="modal-confirm"]').click();
   assert.equal(await page.evaluate(()=>GoalCore.goalMinutes(data.items,'reading')),10);assert.equal(await page.evaluate(()=>GoalCore.goalMinutes(data.items,'homework')),0);
   assert.deepEqual(await page.evaluate(id=>GoalCore.mergeBackup({items:[],settings:{}},JSON.parse(JSON.stringify(data))).items.find(item=>item.id===id).alternativeGoalIds,choiceId),['reading'],'Backup keeps slot alternatives');
   console.log('PASS alternative goals, hierarchy, selection gate, single credit and backup');
