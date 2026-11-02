@@ -46,6 +46,18 @@ const FocusCore={
   for(const item of actuals){const linked=items.find(plan=>plan.id===item.sourcePlanId);result.push({...item,samePlanOverlay:matched.has(item.id)||!!linked&&(linked.goalId===item.goalId||linked.chooseAtStart&&linked.alternativeGoalIds?.includes(item.goalId))});}
   return result;
  },
+ clockPresentation(segments,items){
+  // Identity is a goal ID, never just a child title such as “作业”. Reminders
+  // without a goal share a color only when both calendar and title match.
+  const byId=new Map(items.map(item=>[item.id,item]));
+  const key=item=>{const plan=byId.get(item.sourcePlanId),goalId=item.kind==='todo'?item.id:item.goalId||plan?.goalId;if(goalId)return 'goal:'+goalId;const title=(item.title||'').normalize('NFKC').trim().replace(/\s+/g,' ');return title?'event:'+JSON.stringify([item.calendar||'Default',title]):'blank:'+item.id;};
+  const palette=['#e0ae57','#6fb6dd','#bc9ade','#74c6ac','#e18e91','#92b86c','#df9c6d','#86a1df','#d597c0','#65bfc2','#c5b36a','#a5aec2'];
+  const keys=[...new Set([...items,...segments.map(part=>part.item)].map(key))].sort(),colors=new Map(),used=new Set();
+  for(const identity of keys){let hash=2166136261;for(const char of identity)hash=Math.imul(hash^char.charCodeAt(0),16777619)>>>0;let index=hash%palette.length;while(used.has(index)&&used.size<palette.length)index=(index+1)%palette.length;let color=palette[index];if(used.size>=palette.length){const hue=(hash%360)/60,c=.46,x=c*(1-Math.abs(hue%2-1)),m=.28,rgb=hue<1?[c,x,0]:hue<2?[x,c,0]:hue<3?[0,c,x]:hue<4?[0,x,c]:hue<5?[x,0,c]:[c,0,x];color='#'+rgb.map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('');}used.add(index);colors.set(identity,color);}
+  const decorated=segments.map(part=>({...part,taskKey:key(part.item),item:{...part.item,color:colors.get(key(part.item))}})),labels=new Map();
+  for(const part of decorated){const previous=labels.get(part.taskKey);if(!previous||!!part.item.focusActual>!!previous.item.focusActual||!!part.item.focusActual===!!previous.item.focusActual&&part.end-part.start>previous.end-previous.start)labels.set(part.taskKey,part);}
+  return {segments:decorated,labels:[...labels.values()].map(part=>({...part,periodCount:decorated.filter(other=>other.taskKey===part.taskKey&&!!other.item.focusActual===!!part.item.focusActual).length}))};
+ },
  clockLayout(segments){
   const ends=[-Infinity,-Infinity,-Infinity],arcs=[],groups=new Map();
   for(const segment of [...segments].sort((a,b)=>a.start-b.start||b.end-a.end)){
