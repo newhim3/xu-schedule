@@ -278,9 +278,10 @@
    block.classList.toggle('timeline-micro',block.clientHeight<12);
    if(block.clientHeight<12)continue;
    const horizontal=block.clientHeight<38&&main.clientWidth>150;block.classList.toggle('timeline-inline',horizontal);
-   for(const font of [11,10,9,8,7,6]){
+   for(const font of [11,10,9,8,7,6,5,4]){
     title.style.fontSize=font+'px';time.style.fontSize=Math.max(6,font-2)+'px';
-    if(main.scrollHeight<=main.clientHeight+1&&title.scrollHeight<=title.clientHeight+1&&title.scrollWidth<=title.clientWidth+1&&time.scrollWidth<=time.clientWidth+1)break;
+    const outer=block.getBoundingClientRect(),inside=[title,time].every(node=>{const rect=node.getBoundingClientRect();return rect.left>=outer.left&&rect.right<=outer.right&&rect.top>=outer.top&&rect.bottom<=outer.bottom;});
+    if(inside&&main.scrollHeight<=main.clientHeight+1&&title.scrollHeight<=title.clientHeight+1&&title.scrollWidth<=title.clientWidth+1&&time.scrollWidth<=time.clientWidth+1)break;
    }
    main.querySelector('.time-note')?.classList.toggle('timeline-note-hidden',main.scrollHeight>main.clientHeight+1);
   }
