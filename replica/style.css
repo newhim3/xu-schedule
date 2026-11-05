@@ -315,3 +315,8 @@ dialog.choice-sheet{box-sizing:border-box;color:#e5eced;background:linear-gradie
 .timeline-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px}.timeline-toolbar .day-records-link{margin:0;padding:4px 3px;min-height:28px;font-size:10px}.timeline-toolbar>span{font-size:9px;color:#b2c4cc}.screen:has(.daily-timeline) .range-instruction{margin-top:0;font-size:8px;opacity:.75}
 .timeline-source{display:flex;align-items:center;gap:8px;border-bottom:1px solid #ffffff10}.timeline-source>button:first-child{flex:1}.timeline-source .session-check{flex:0 0 40px}
 .screen:has(.daily-timeline) .today-button{position:static;transform:none;inset:auto;flex-shrink:0;width:34px;height:34px;min-height:34px;border-radius:9px;box-shadow:none;background:#23364460}.screen:has(.daily-timeline) .today-button svg{width:20px;height:20px}.screen:has(.daily-timeline) .today-button>span{font-size:10px}.timeline-toolbar>span{margin-left:auto}
+.daily-timeline .time-block:has(.session-check){grid-template-rows:minmax(0,1fr);align-items:stretch}
+.daily-timeline .time-block .session-check{height:100%;max-height:28px;min-height:0;min-width:0;overflow:hidden}
+.daily-timeline .time-block .session-check>span{width:min(14px,100%);height:min(14px,100%);min-height:0;min-width:0;flex-shrink:1}
+.screen:has(.daily-timeline) .today-button{position:relative}
+.screen:has(.daily-timeline) .today-button>span{position:absolute;left:50%;top:50%;transform:translate(-50%,-12%);font-size:8px;line-height:1;margin:0}
