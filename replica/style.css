@@ -300,3 +300,18 @@ dialog.choice-sheet{box-sizing:border-box;color:#e5eced;background:linear-gradie
 .clock-font-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;font-size:10px;color:#9fb3b7}.clock-font-footer button{min-height:36px;color:#bdd8cf;padding:6px}
 .clock-callout.is-highlighted .clock-callout-bed{background:#152d3ac9;box-shadow:inset 0 0 0 1px #c3dbe528}
 .clock-connectors path{stroke-width:1;opacity:.8}
+/* Day timeline: one collision layout, with an execution rail inside each task. */
+.daily-timeline .time-block{background:color-mix(in srgb,var(--event-color) 14%,#12222cdd);border-radius:5px;border-left-width:2px;box-shadow:none;isolation:isolate}
+.daily-timeline .time-block.focus-actual{background:color-mix(in srgb,var(--event-color) 18%,#12222cdd)!important;box-shadow:none}
+.daily-timeline .time-block.plan-shadow{opacity:.65;background:#24364570!important}
+.daily-timeline .time-block-main{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:3px 6px;overflow:visible;min-width:0;min-height:0;height:100%}
+.daily-timeline .time-block-main strong{display:block;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.25;font-weight:400;text-decoration:none;-webkit-line-clamp:unset}
+.daily-timeline .time-block-main small{display:block!important;white-space:nowrap;overflow:visible;line-height:1.15;margin:0;color:#cbd6dc}
+.daily-timeline .time-block.timeline-inline .time-block-main{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding-top:1px;padding-bottom:1px}
+.daily-timeline .time-block .session-check{position:relative;z-index:2;align-self:center;min-width:22px}
+.daily-timeline .time-block .time-note{line-height:1.2;margin:0;font-size:9px}
+.timeline-note-hidden{display:none!important}.timeline-execution{position:absolute;inset:0;z-index:0;pointer-events:none}.timeline-execution i{position:absolute;left:0;right:0;background:color-mix(in srgb,var(--event-color) 15%,transparent);border-left:3px solid var(--event-color);border-top:1px solid #ffffff18;border-bottom:1px solid #ffffff18}
+.daily-timeline .timeline-micro .time-block-main{opacity:0}.daily-timeline .timeline-micro .session-check{display:none}
+.timeline-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px}.timeline-toolbar .day-records-link{margin:0;padding:4px 3px;min-height:28px;font-size:10px}.timeline-toolbar>span{font-size:9px;color:#b2c4cc}.screen:has(.daily-timeline) .range-instruction{margin-top:0;font-size:8px;opacity:.75}
+.timeline-source{display:flex;align-items:center;gap:8px;border-bottom:1px solid #ffffff10}.timeline-source>button:first-child{flex:1}.timeline-source .session-check{flex:0 0 40px}
+.screen:has(.daily-timeline) .today-button{position:static;transform:none;inset:auto;flex-shrink:0;width:34px;height:34px;min-height:34px;border-radius:9px;box-shadow:none;background:#23364460}.screen:has(.daily-timeline) .today-button svg{width:20px;height:20px}.screen:has(.daily-timeline) .today-button>span{font-size:10px}.timeline-toolbar>span{margin-left:auto}

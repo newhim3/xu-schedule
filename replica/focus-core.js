@@ -46,6 +46,33 @@ const FocusCore={
   for(const item of actuals){const linked=items.find(plan=>plan.id===item.sourcePlanId);result.push({...item,samePlanOverlay:matched.has(item.id)||!!linked&&(linked.goalId===item.goalId||linked.chooseAtStart&&linked.alternativeGoalIds?.includes(item.goalId))});}
   return result;
  },
+ timelineItems(items){
+  const byId=new Map(items.map(item=>[item.id,item])),groups=new Map(),result=[];
+  for(const raw of items){
+   const item=raw.planOriginal&&!raw.focusActual?{...raw,...raw.planOriginal}:raw;
+   const [start,end]=item.kind==='event'&&!item.allDay&&item.time?this.range(item):[NaN,NaN];
+   if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start){result.push(item);continue;}
+   const source=byId.get(item.sourcePlanId),choices=new Set(item.chooseAtStart?items.filter(actual=>actual.focusActual&&actual.sourcePlanId===item.id&&item.alternativeGoalIds?.includes(actual.goalId)).map(actual=>actual.goalId):[]),goal=choices.size===1?[...choices][0]:item.goalId||source?.goalId;
+   const title=(item.title||'').normalize('NFKC').trim().replace(/\s+/g,' ');
+   const key=item.blank?'blank:'+item.id:goal?'goal:'+goal:JSON.stringify([item.calendar||'Default',title||item.id]);
+   if(!groups.has(key))groups.set(key,[]);groups.get(key).push({item,start,end});
+  }
+  const flush=parts=>{
+   const start=parts[0].start,end=Math.max(...parts.map(part=>part.end)),plans=parts.filter(part=>!part.item.focusActual),representative=plans[0]?.item||parts[0].item;
+   const actual=parts.filter(part=>part.item.focusActual).map(part=>[part.start,part.end]).sort((a,b)=>a[0]-b[0]),actualRanges=[];
+   for(const interval of actual){const last=actualRanges.at(-1);if(last&&interval[0]<=last[1])last[1]=Math.max(last[1],interval[1]);else actualRanges.push([...interval]);}
+   const from=this.parts(start),to=this.parts(end),sources=[...new Set(parts.map(part=>part.item.id))];
+   const copy={...representative,date:from.date,time:from.time,endDate:to.date,endTime:to.time,timelineSources:sources,timelineActualRanges:actualRanges,timelineHasPlan:!!plans.length,timelineMerged:sources.length>1};
+   if(copy.focusActual){copy.actualStartAt=start;copy.actualEndAt=end;}
+   if(actual.length&&plans.length){copy.renderRemainder=false;copy.samePlanOverlay=true;delete copy.focusCoveredBy;}
+   result.push(copy);
+  };
+  for(const entries of groups.values()){
+   entries.sort((a,b)=>a.start-b.start||a.end-b.end);let cluster=[],end=-Infinity;
+   for(const part of entries){if(cluster.length&&part.start>end){flush(cluster);cluster=[];end=-Infinity;}cluster.push(part);end=Math.max(end,part.end);}if(cluster.length)flush(cluster);
+  }
+  return result;
+ },
  clockPresentation(segments,items){
   // Identity is a goal ID, never just a child title such as “作业”. Reminders
   // without a goal share a color only when both calendar and title match.

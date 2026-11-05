@@ -66,6 +66,7 @@ jobs:
       - run: node scripts/test-spiral-focus-ui.cjs
       - run: node scripts/test-clock-task-ui.cjs
       - run: node scripts/test-clock-readable.cjs
+      - run: node scripts/test-timeline-readable.cjs
       - run: node scripts/test-goal-ui.cjs
       - run: node scripts/test-planner.cjs
       - run: node scripts/test-refinements.cjs

@@ -227,33 +227,65 @@
  setInterval(()=>{if(document.hidden)return;refreshFocus();updateClockNeedle();const start=document.querySelector('[data-action="focus-start"]');if(start)start.disabled=!selectedFocus().ready;},1000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFocus();});
  const nativeNavigation=actions.tab;actions.tab=element=>{refreshFocus();nativeNavigation(element);};
+ let renderingDayTimeline=false;
  const originalSegments=timedSegments;
  timedSegments=date=>{
-  const items=data.items;try{data.items=FocusCore.calendarItems(items);return originalSegments(date);}finally{data.items=items;}
+  const items=data.items;try{data.items=renderingDayTimeline?FocusCore.timelineItems(items):FocusCore.calendarItems(items);return originalSegments(date);}finally{data.items=items;}
  };
  const dayTimeline=weekHTML;
  weekHTML=()=>{
   if(data.settings.dayDisplay==='clock'&&ui.calendarView==='Week')return clockDayHTML();
-  const template=document.createElement('template');template.innerHTML=dayTimeline();const visualSegments=timedSegments(ui.selected);
+  const template=document.createElement('template');let visualSegments;
+  renderingDayTimeline=true;
+  try{template.innerHTML=dayTimeline();visualSegments=timedSegments(ui.selected);}finally{renderingDayTimeline=false;}
   for(const block of template.content.querySelectorAll('.time-block')){
-   const item=data.items.find(record=>record.id===block.dataset.id);if(!item)continue;
-   const segment=visualSegments.find(segment=>segment.item.id===item.id&&Math.abs(dayY(Math.max(segment.start,dayAxis().start))-parseFloat(block.style.top))<.1);
-   if(segment?.item.renderRemainder){block.classList.add('plan-remainder');block.querySelector('.session-check')?.remove();}
-   if(segment?.item.samePlanOverlay)block.classList.add('same-plan-overlay');
-   const linkedGoal=data.items.find(goal=>goal.id===item.goalId);if(linkedGoal?.parentId)block.querySelector('strong').textContent=goalPath(linkedGoal);
-   if(item.focusActual){block.classList.add('focus-actual');block.querySelector('.session-check')?.remove();block.style.zIndex='3';}
-   if(item.focusCoveredBy?.length&&!segment?.item.renderRemainder){block.classList.add('plan-shadow');block.style.left='0';block.style.width='30%';block.style.zIndex='1';block.querySelector('.session-check')?.remove();block.querySelector('.time-block-main')?.insertAdjacentHTML('afterbegin',`<span class="coverage-caption">${t('原计划','Original plan')}</span>`);}
-   if(item.blank){block.classList.add('blank-range');block.querySelector('.session-check')?.remove();block.querySelector('strong').textContent=t('空白任务 · 点此编辑','Blank task · tap to edit');block.insertAdjacentHTML('beforeend',`<button class="range-handle start" data-action="range-handle" data-resize="start" aria-label="${t('调整开始时间','Resize start')}"></button><button class="range-handle end" data-action="range-handle" data-resize="end" aria-label="${t('调整结束时间','Resize end')}"></button>`);}
+   const source=data.items.find(record=>record.id===block.dataset.id);if(!source)continue;
+   const segment=visualSegments.find(part=>part.item.id===source.id&&Math.abs(dayY(Math.max(part.start,dayAxis().start))-parseFloat(block.style.top))<.1),item=segment?.item||source;
+   block.dataset.start=segment?.start;block.dataset.end=segment?.end;
+   const main=block.querySelector('.time-block-main');
+   const linkedGoal=data.items.find(goal=>goal.id===item.goalId);
+   if(linkedGoal?.parentId)block.querySelector('strong').textContent=goalPath(linkedGoal);
+   if(item.renderRemainder)block.classList.add('plan-remainder');
+   if(item.samePlanOverlay)block.classList.add('same-plan-overlay');
+   if(item.focusActual){block.classList.add('focus-actual');block.classList.remove('done');block.querySelector('.session-check')?.remove();}
+   if(item.focusCoveredBy?.length&&!item.renderRemainder){block.classList.add('plan-shadow');block.querySelector('.session-check')?.remove();}
+   const actuals=item.timelineActualRanges||[];
+   if(actuals.length){
+    block.classList.add('has-actual');
+    const from=Math.max(segment.start,dayAxis().start),to=Math.min(segment.end,dayAxis().end);
+    block.insertAdjacentHTML('afterbegin','<div class="timeline-execution" aria-hidden="true">'+actuals.map(([start,end])=>{
+     const a=FocusCore.parts(start),b=FocusCore.parts(end),lo=a.date<ui.selected?0:minuteOf(a.time),hi=b.date>ui.selected?1440:minuteOf(b.time);
+     const top=Math.max(from,lo),bottom=Math.min(to,hi);return bottom>top?'<i style="top:'+((top-from)/(to-from)*100)+'%;height:'+((bottom-top)/(to-from)*100)+'%"></i>':'';
+    }).join('')+'</div>');
+   }
+   if(item.timelineMerged){
+    block.classList.add('timeline-merged');block.dataset.sources=item.timelineSources.join(',');
+    block.querySelector('.session-check')?.remove();main.dataset.action='timeline-items';main.dataset.ids=item.timelineSources.join(',');
+   }
+   if(item.blank){block.classList.add('blank-range');block.querySelector('.session-check')?.remove();block.querySelector('strong').textContent=t('空白任务 · 点此编辑','Blank task · tap to edit');block.insertAdjacentHTML('beforeend','<button class="range-handle start" data-action="range-handle" data-resize="start" aria-label="'+t('调整开始时间','Resize start')+'"></button><button class="range-handle end" data-action="range-handle" data-resize="end" aria-label="'+t('调整结束时间','Resize end')+'"></button>');}
   }
-  const shadows=template.content.querySelectorAll('.plan-shadow');
-  for(const block of template.content.querySelectorAll('.focus-actual')){
-   if(shadows.length&&!block.classList.contains('same-plan-overlay')){block.style.left='33%';block.style.width='calc(67% - 4px)';block.classList.add('covers-plan');}else if(!block.classList.contains('same-plan-overlay')){block.style.left='6px';block.style.width='calc(100% - 10px)';}
-   block.querySelector('.time-block-main')?.insertAdjacentHTML('afterbegin',`<span class="coverage-caption">${t('实际专注','Actual focus')}</span>`);
-  }
-  if(template.content.querySelector('.focus-actual'))template.content.querySelector('.daily-timeline').insertAdjacentHTML('beforebegin',`<button class="day-records-link" data-action="timetable-records" data-date="${ui.selected}">${t('查看当天完整记录','View all daily records')}</button>`);
-  template.content.querySelector('.daily-timeline')?.insertAdjacentHTML('beforebegin',`<p class="range-instruction">${t('长按空白处新建 · 拖动上下手柄调时 · 15 分钟吸附','Hold empty space to create · drag handles · snaps to 15 min')}</p>`);
+  template.content.querySelector('.daily-timeline')?.insertAdjacentHTML('beforebegin','<div class="timeline-toolbar"><button class="day-records-link" data-action="timetable-records" data-date="'+ui.selected+'">'+t('当天记录','Daily records')+'</button><span>'+t('色条：实际专注','Color rail: actual focus')+'</span></div><p class="range-instruction">'+t('长按新建 · 拖动调时 · 15 分钟吸附','Hold to add · drag to resize · 15 min snap')+'</p>');
   return template.innerHTML;
  };
+ actions['timeline-items']=element=>{
+  const ids=new Set(element.dataset.ids.split(',')),records=data.items.filter(item=>ids.has(item.id));
+  showDialog(t('时段详情','Period details'),'<div class="timeline-record-list">'+records.map(item=>'<div class="timeline-source"><button data-action="edit" data-id="'+esc(item.id)+'"><strong>'+esc(item.title)+'</strong><small>'+esc(item.time)+'–'+esc(item.endTime||'')+' · '+(item.focusActual?t('实际专注','Actual focus'):t('计划安排','Planned'))+'</small></button>'+(!item.focusActual?clockDoneButton(item).replace('data-action="finish-session"','data-action="timeline-finish" data-ids="'+esc(element.dataset.ids)+'"'):'')+'</div>').join('')+'</div>',()=>true,t('关闭','Close'));
+ };
+ actions['timeline-finish']=element=>{actions['finish-session'](element);actions['timeline-items']({dataset:{ids:element.dataset.ids}});};
+ function fitTimelineText(){
+  for(const block of document.querySelectorAll('#app > .screen .time-block')){
+   const main=block.querySelector('.time-block-main'),title=main?.querySelector('strong'),time=main?.querySelector('small');if(!title||!time)continue;
+   block.classList.toggle('timeline-micro',block.clientHeight<12);
+   if(block.clientHeight<12)continue;
+   const horizontal=block.clientHeight<38&&main.clientWidth>150;block.classList.toggle('timeline-inline',horizontal);
+   for(const font of [11,10,9,8,7,6]){
+    title.style.fontSize=font+'px';time.style.fontSize=Math.max(6,font-2)+'px';
+    if(main.scrollHeight<=main.clientHeight+1&&title.scrollHeight<=title.clientHeight+1&&title.scrollWidth<=title.clientWidth+1&&time.scrollWidth<=time.clientWidth+1)break;
+   }
+   main.querySelector('.time-note')?.classList.toggle('timeline-note-hidden',main.scrollHeight>main.clientHeight+1);
+  }
+ }
+ window.addEventListener('resize',fitTimelineText);window.visualViewport?.addEventListener('resize',fitTimelineText);
  function clockData(){
   const items=data.items;let raw;
   // The clock compares the original plan against actual focus; it must not use
@@ -407,7 +439,7 @@
  document.addEventListener('input',event=>{if(event.target.id==='clock-font-size')setClockFont(event.target.value);});
  document.addEventListener('change',event=>{if(event.target.id==='clock-font-size'){setClockFont(event.target.value);}});
  settingsHTML=()=>{
-  let html=previousSettings().replaceAll('1.3.0','1.9.1');if(panel.sub!=='root')return html;html=html.replace('<div class="section-caption">',`<div class="setting-card">${rowToggle(t('液态玻璃材质','Liquid glass'),'liquidGlass',data.settings.liquidGlass!==false,true)}<label class="row"><span class="label">${t('钟表文字标注','Clock labels')}</span><select id="clock-labels"><option value="outside" ${data.settings.clockLabels!=='inside'?'selected':''}>${t('圈外引线','Outside callouts')}</option><option value="inside" ${data.settings.clockLabels==='inside'?'selected':''}>${t('圈内正向','Upright inside')}</option></select></label></div><div class="section-caption">`);
+  let html=previousSettings().replaceAll('1.3.0','1.10.0');if(panel.sub!=='root')return html;html=html.replace('<div class="section-caption">',`<div class="setting-card">${rowToggle(t('液态玻璃材质','Liquid glass'),'liquidGlass',data.settings.liquidGlass!==false,true)}<label class="row"><span class="label">${t('钟表文字标注','Clock labels')}</span><select id="clock-labels"><option value="outside" ${data.settings.clockLabels!=='inside'?'selected':''}>${t('圈外引线','Outside callouts')}</option><option value="inside" ${data.settings.clockLabels==='inside'?'selected':''}>${t('圈内正向','Upright inside')}</option></select></label></div><div class="section-caption">`);
   html=html.replace('<div class="section-caption">',`<div class="setting-card"><label class="row"><span class="label">${t('日视图显示方式','Day view style')}</span><select id="day-display" aria-label="${t('日视图显示方式','Day view style')}"><option value="timeline" ${data.settings.dayDisplay!=='clock'?'selected':''}>${t('时间轴','Timeline')}</option><option value="clock" ${data.settings.dayDisplay==='clock'?'selected':''}>${t('钟表','Clock')}</option></select></label></div><div class="section-caption">`);
   html=html.replace('<div class="section-caption">',clockFontSetting()+'<div class="section-caption">');
   const density=`<div class="setting-card"><label class="row"><span class="label">${t('日视图默认模式','Daytime view')}<small>${t('06:00–23:00 · 总高度不变，每小时空间增加约41%','06:00–23:00 · same canvas, 41% more room per hour')}</small></span><input type="checkbox" class="toggle" data-setting="daytimeOnly" ${data.settings.daytimeOnly!==false?'checked':''}></label></div><div class="setting-card"><label class="row"><span class="label">${t('目标卡片疏密','Goal card density')}<small>${t('调整卡片高度，字号保持不变','Adjust card height without changing text size')}</small></span><select id="card-density" aria-label="${t('目标卡片疏密','Goal card density')}">${Object.entries(cardDensities).map(([key,label])=>`<option value="${key}" ${key===(data.settings.cardDensity||'compact')?'selected':''}>${t(...label)}</option>`).join('')}</select></label></div>`;
@@ -473,7 +505,7 @@
   });
  }
  const overlayChoices=renderOverlay;renderOverlay=function(){overlayChoices();if(menu==='view'&&ui.tab==='calendar')document.querySelector('#overlay > .menu')?.insertAdjacentHTML('beforeend',menuItem('dashboard',t('数据板','Data board'),'grid','',ui.calendarView==='Dashboard'));enhanceChoices();};
- const renderWithStatistics=render;render=function(){renderWithStatistics();if(ui.tab==='calendar'&&ui.calendarView==='Dashboard'){const title=document.querySelector('#app > .screen .month-title');if(title)title.innerHTML=t('数据板','Data board')+`<small>${ui.selected}</small>`;}fitClock();};
+ const renderWithStatistics=render;render=function(){renderWithStatistics();if(ui.tab==='calendar'&&ui.calendarView==='Dashboard'){const title=document.querySelector('#app > .screen .month-title');if(title)title.innerHTML=t('数据板','Data board')+`<small>${ui.selected}</small>`;}const toolbar=document.querySelector('#app > .screen .timeline-toolbar'),todayButton=document.querySelector('#app > .screen .today-button');if(toolbar&&todayButton)toolbar.append(todayButton);fitClock();fitTimelineText();};
  document.addEventListener('keydown',event=>{if(choiceState&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeChoice();}},true);
  const backBeforeChoices=window.handleNativeBack;window.handleNativeBack=()=>{if(choiceState){closeChoice();return true;}return backBeforeChoices();};
  initializeNative();refreshFocus();render();

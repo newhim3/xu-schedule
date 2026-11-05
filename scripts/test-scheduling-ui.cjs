@@ -36,7 +36,7 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
   console.log('PASS alternative goals, hierarchy, selection gate, single credit and backup');
   await page.locator('[data-tab="calendar"]').click();await page.waitForTimeout(300);
   assert.equal(await page.locator(`.time-block.plan-shadow[data-id="${choiceId}"]`).count(),0,'Same task is not moved into a left shadow column');
-  const remaining=page.locator(`.time-block.plan-remainder[data-id="${choiceId}"]`);assert.equal(await remaining.count(),1);assert(await remaining.evaluate(node=>Number(getComputedStyle(node).opacity)<.7),'Only the unperformed portion is faded');
+  const merged=page.locator(`.time-block.timeline-merged[data-id="${choiceId}"]`);assert.equal(await merged.count(),1);assert.equal(await merged.locator('.timeline-execution i').count(),1,'Actual execution is highlighted inside the single merged plan');assert.equal(await merged.locator('[data-action="timeline-items"]').count(),1,'Original plan and actual records remain accessible');
   assert(await page.locator('.same-plan-overlay').first().evaluate(node=>parseFloat(node.style.width)>90||node.style.width.includes('100%')),'Actual same-task focus retains the schedule width');
   console.log('PASS same-slot focus replaces its covered interval and dims only the remaining plan');
   assert.deepEqual(errors,[]);console.log('PASS continuous scheduling, alternatives and partial focus coverage');
