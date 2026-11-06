@@ -43,6 +43,7 @@ public final class ReminderScheduler {
             result.put("fullScreen",Build.VERSION.SDK_INT < 34 || c.getSystemService(NotificationManager.class).canUseFullScreenIntent());
             result.put("scheduled",preferences(c).getInt("scheduled",0));
             result.put("version",c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionName);
+            result.put("versionCode",c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionCode);
         } catch(Exception ignored) {}
         return result;
     }

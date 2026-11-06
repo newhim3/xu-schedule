@@ -7,4 +7,5 @@ for(const match of (html+css).matchAll(/(?:src="|url\()([a-z0-9.-]+\.(?:js|jpg|s
 const native=fs.readFileSync('android-webview/app/src/main/java/com/newhim3/xuschedule/MainActivity.java','utf8');
 for(const name of assets)assert(native.includes('"'+name+'"'),'Native asset handler must allow '+name);
 assert(fs.readFileSync('android-webview/app/build.gradle','utf8').includes('web-assets.json'),'Gradle uses the canonical asset registry');
+assert.equal(fs.readFileSync('replica/app.js','utf8').match(/const APP_VERSION='([^']+)'/)[1],fs.readFileSync('android-webview/app/build.gradle','utf8').match(/versionName "([^"]+)"/)[1],'Web fallback version must match the native build');
 console.log('PASS canonical APK asset registry covers scripts, backgrounds and native handler');

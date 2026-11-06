@@ -48,6 +48,8 @@ public class MainActivity extends Activity {
     private static final String UPDATE_MANIFEST = "https://raw.githubusercontent.com/newhim3/xu-schedule/main/update.json";
     private WebView webView;
     private File pendingApk;
+    private static final int INSTALL_UPDATE = 61;
+    private boolean updateOutcomeShown;
     private AlertDialog updateDialog;
     private boolean downloadingUpdate;
     private volatile HttpURLConnection activeUpdateConnection;
@@ -75,7 +77,13 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        int installedCode = installedVersionCode();
+        android.content.SharedPreferences uiCache = getSharedPreferences("planner_ui", MODE_PRIVATE);
+        if (uiCache.getInt("asset_version", -1) != installedCode) {
+            webView.clearCache(true);
+            uiCache.edit().putInt("asset_version", installedCode).apply();
+        }
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setAllowFileAccess(false);
         settings.setAllowFileAccessFromFileURLs(false);
@@ -85,7 +93,7 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new NativeBridge(), "AndroidBridge");
         settings.setAllowContentAccess(false);
         webView.setWebViewClient(new WebViewClient() {
-            @Override public void onPageFinished(WebView view, String url) { progress.setVisibility(View.GONE); updatePermissionStatus(); }
+            @Override public void onPageFinished(WebView view, String url) { progress.setVisibility(View.GONE); updatePermissionStatus(); verifyUpdateOutcome(false); }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return !APP_ORIGIN.equals(request.getUrl().getScheme()+"://"+request.getUrl().getHost());
             }
@@ -99,7 +107,7 @@ public class MainActivity extends Activity {
                 try {String mime=file.endsWith(".js")?"text/javascript":file.endsWith(".css")?"text/css":file.endsWith(".svg")?"image/svg+xml":file.endsWith(".jpg")?"image/jpeg":file.endsWith(".json")?"application/json":file.endsWith(".webmanifest")?"application/manifest+json":"text/html";return new WebResourceResponse(mime,file.endsWith(".jpg")?null:"UTF-8",getAssets().open(file));}catch(Exception e){return null;}
             }
         });
-        webView.loadUrl(APP_ORIGIN+"/assets/index.html");
+        webView.loadUrl(APP_ORIGIN+"/assets/index.html?build="+installedCode);
         checkForUpdate();
     }
 
@@ -108,7 +116,9 @@ public class MainActivity extends Activity {
     private void checkForUpdate(boolean manual) {
         executor.execute(() -> {
             try {
-                HttpURLConnection connection = (HttpURLConnection) new URL(UPDATE_MANIFEST).openConnection();
+                HttpURLConnection connection = (HttpURLConnection) new URL(UPDATE_MANIFEST+"?check="+System.currentTimeMillis()).openConnection();
+                connection.setUseCaches(false);
+                connection.setRequestProperty("Cache-Control", "no-cache");
                 connection.setConnectTimeout(5000);
                 connection.setReadTimeout(5000);
                 InputStream input = connection.getInputStream();
@@ -122,9 +132,9 @@ public class MainActivity extends Activity {
                 if (latest > installed) runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     new AlertDialog.Builder(this).setTitle(text("发现新版本 ", "New version ") + manifest.optString("versionName"))
-                        .setMessage(text(manifest.optString("releaseNotes", "更新将保留现有日程数据。"), manifest.optString("releaseNotesEn", "Update available. Your existing planner data will be kept.")))
+                        .setMessage(text("当前已安装：", "Installed: ")+installedVersionName()+" ("+installed+")\n"+text("将更新为：", "Update to: ")+manifest.optString("versionName")+" ("+latest+")\n\n"+text(manifest.optString("releaseNotes", "更新将保留现有日程数据。"), manifest.optString("releaseNotesEn", "Update available. Your existing planner data will be kept.")))
                         .setNegativeButton(text("稍后", "Later"), null)
-                        .setPositiveButton(text("下载更新", "Download update"), (dialog, which) -> downloadAndInstall(manifest.optString("apkUrl"), manifest.optString("sha256")))
+                        .setPositiveButton(text("下载更新", "Download update"), (dialog, which) -> downloadAndInstall(manifest.optString("apkUrl"), manifest.optString("sha256"), latest, manifest.optString("versionName")))
                         .show();
                 });
                 else if(manual)runOnUiThread(()->Toast.makeText(this,text("已是最新版本", "You're up to date"),Toast.LENGTH_SHORT).show());
@@ -132,7 +142,7 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void downloadAndInstall(String apkUrl, String expectedHash) {
+    private void downloadAndInstall(String apkUrl, String expectedHash, int expectedCode, String expectedName) {
         if (apkUrl == null || !apkUrl.startsWith("https://github.com/newhim3/xu-schedule/releases/download/")) return;
         if(downloadingUpdate){if(updateDialog!=null)updateDialog.show();return;}
         downloadingUpdate=true;cancelUpdate.set(false);
@@ -147,10 +157,12 @@ public class MainActivity extends Activity {
             try {
                 if(cancelUpdate.get())throw new java.io.IOException("Cancelled");
                 File dir = new File(getCacheDir(), "updates"); dir.mkdirs();
-                File apk = new File(dir, "xu-schedule-update.apk");
+                File apk = File.createTempFile(UpdatePolicy.filePrefix(expectedCode, expectedHash), ".apk", dir);
                 partial=apk;
                 HttpURLConnection connection = (HttpURLConnection) new URL(apkUrl).openConnection();
                 activeUpdateConnection=connection;
+                connection.setUseCaches(false);
+                connection.setRequestProperty("Cache-Control", "no-cache");
                 connection.setConnectTimeout(10000); connection.setReadTimeout(30000);
                 try(InputStream input=connection.getInputStream();FileOutputStream output=new FileOutputStream(apk)){
                     long total;try{total=Long.parseLong(connection.getHeaderField("Content-Length"));}catch(Exception ignored){total=-1;}
@@ -177,8 +189,12 @@ public class MainActivity extends Activity {
                     apk.delete();
                     throw new SecurityException("Invalid update package");
                 }
+                UpdatePolicy.requireCandidate(expectedCode, expectedName, candidate.versionCode, candidate.versionName, current.versionCode);
                 if(cancelUpdate.get())throw new java.io.IOException("Cancelled");verified=true;
-                runOnUiThread(() -> {downloadingUpdate=false;if(updateDialog!=null){updateDialog.dismiss();updateDialog=null;}if (!isFinishing() && !isDestroyed()&&!cancelUpdate.get()) installApk(apk); });
+                runOnUiThread(() -> {downloadingUpdate=false;if(updateDialog!=null){updateDialog.dismiss();updateDialog=null;}if (!isFinishing() && !isDestroyed()&&!cancelUpdate.get()) {
+                    getSharedPreferences("planner_update",MODE_PRIVATE).edit().putInt("target_code",expectedCode).putString("target_name",expectedName).putString("apk_path",apk.getAbsolutePath()).apply();
+                    installApk(apk);
+                } });
             } catch (Exception e) { runOnUiThread(() -> {downloadingUpdate=false;if(updateDialog!=null){updateDialog.dismiss();updateDialog=null;}if(!isFinishing()&&!isDestroyed()&&!cancelUpdate.get())Toast.makeText(this, text("新版本下载失败，请稍后重试", "Download failed. Please try again."), Toast.LENGTH_SHORT).show();}); }
             finally{if(!verified&&partial!=null)partial.delete();}
         });
@@ -193,10 +209,12 @@ public class MainActivity extends Activity {
             return;
         }
         Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apk);
-        Intent intent = new Intent(Intent.ACTION_VIEW);
+        Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
         intent.setDataAndType(uri, "application/vnd.android.package-archive");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-        try { startActivity(intent); }
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.putExtra(Intent.EXTRA_RETURN_RESULT, true);
+        updateOutcomeShown=false;
+        try { startActivityForResult(intent, INSTALL_UPDATE); }
         catch (android.content.ActivityNotFoundException e) {
             Toast.makeText(this, text("无法打开系统安装器", "Cannot open the system installer"), Toast.LENGTH_LONG).show();
         }
@@ -210,6 +228,32 @@ public class MainActivity extends Activity {
             File apk = pendingApk;
             pendingApk = null;
             installApk(apk);
+        }
+    }
+
+    private int installedVersionCode() {
+        try { return getPackageManager().getPackageInfo(getPackageName(),0).versionCode; }
+        catch(PackageManager.NameNotFoundException e) { return 0; }
+    }
+    private String installedVersionName() {
+        try { return getPackageManager().getPackageInfo(getPackageName(),0).versionName; }
+        catch(PackageManager.NameNotFoundException e) { return text("无法读取","Unavailable"); }
+    }
+    private void verifyUpdateOutcome(boolean returnedFromInstaller) {
+        android.content.SharedPreferences state=getSharedPreferences("planner_update",MODE_PRIVATE);
+        int target=state.getInt("target_code",0),installed=installedVersionCode();
+        if(target<=0||isFinishing()||isDestroyed())return;
+        if(UpdatePolicy.installed(target,installed)){
+            state.edit().remove("target_code").remove("target_name").remove("apk_path").apply();
+            updatePermissionStatus();
+            Toast.makeText(this,text("更新已完成：","Update installed: ")+installedVersionName()+" ("+installed+")",Toast.LENGTH_LONG).show();
+        }else if(returnedFromInstaller&&!updateOutcomeShown){
+            updateOutcomeShown=true;
+            String path=state.getString("apk_path","");
+            new AlertDialog.Builder(this).setTitle(text("更新尚未完成","Update not installed"))
+                .setMessage(text("系统当前仍安装：","System still has: ")+installedVersionName()+" ("+installed+")\n"+text("下载的版本：","Downloaded: ")+state.getString("target_name","")+" ("+target+")\n\n"+text("请在系统安装页面完成更新。","Complete the update in the system installer."))
+                .setNegativeButton(text("稍后","Later"),null)
+                .setPositiveButton(text("重新安装","Retry installation"),(dialog,which)->{updateOutcomeShown=false;File file=new File(path);if(file.isFile()&&file.getParentFile().equals(new File(getCacheDir(),"updates")))installApk(file);else checkForUpdate(true);}).show();
         }
     }
 
@@ -247,7 +291,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void exportBackup(String json){if(json.length()>5_000_000)return;pendingExport=json;runOnUiThread(()->{Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"calendar-backup.json");startActivityForResult(intent,51);});}
         @JavascriptInterface public void importBackup(){runOnUiThread(()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE),52));}
     }
-    @Override protected void onActivityResult(int request,int result,Intent intent){super.onActivityResult(request,result,intent);if(result!=RESULT_OK||intent==null||intent.getData()==null)return;
+    @Override protected void onActivityResult(int request,int result,Intent intent){super.onActivityResult(request,result,intent);if(request==INSTALL_UPDATE){verifyUpdateOutcome(true);return;}if(result!=RESULT_OK||intent==null||intent.getData()==null)return;
         if(request==51&&pendingExport!=null){final String json=pendingExport;pendingExport=null;executor.execute(()->{try(java.io.OutputStream out=getContentResolver().openOutputStream(intent.getData())){out.write(json.getBytes(StandardCharsets.UTF_8));runOnUiThread(()->Toast.makeText(this,text("备份已保存", "Backup saved"),Toast.LENGTH_SHORT).show());}catch(Exception e){runOnUiThread(()->Toast.makeText(this,text("备份保存失败", "Could not save backup"),Toast.LENGTH_SHORT).show());}});}
         if(request==52)executor.execute(()->{try(InputStream in=getContentResolver().openInputStream(intent.getData())){ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int count;while((count=in.read(buffer))!=-1){if(out.size()+count>5_000_000)throw new java.io.IOException("Too large");out.write(buffer,0,count);}String json=out.toString("UTF-8");runOnUiThread(()->webView.evaluateJavascript("window.importNativeBackup && window.importNativeBackup("+JSONObject.quote(json)+")",null));}catch(Exception e){runOnUiThread(()->Toast.makeText(this,text("无法读取备份文件", "Could not read backup"),Toast.LENGTH_SHORT).show());}});
     }

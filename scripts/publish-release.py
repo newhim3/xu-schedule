@@ -73,8 +73,17 @@ with tempfile.TemporaryDirectory() as directory:
     downloaded.mkdir()
     run("gh", "release", "download", tag, "--pattern", "xu-schedule.apk", "--dir", str(downloaded))
     assert digest(downloaded / "xu-schedule.apk") == meta["sha256"], "Release asset differs; refusing to overwrite"
+    # A visible version in the filename prevents selecting a previous download.
+    versioned_name = "xu-schedule-" + meta["versionName"] + ".apk"
+    versioned_apk = Path(directory, versioned_name)
+    import shutil
+    shutil.copyfile(apk, versioned_apk)
+    if not any(asset["name"] == versioned_name for asset in assets):
+        run("gh", "release", "upload", tag, str(versioned_apk))
+    run("gh", "release", "download", tag, "--pattern", versioned_name, "--dir", str(downloaded))
+    assert digest(downloaded / versioned_name) == meta["sha256"], "Versioned release asset differs"
     run("gh", "release", "edit", tag, "--draft=false", "--latest")
-    url = "https://github.com/" + repo + "/releases/download/" + tag + "/xu-schedule.apk"
+    url = "https://github.com/" + repo + "/releases/download/" + tag + "/" + versioned_name
     public = Path(directory, "public.apk")
     run("curl", "--fail", "--location", "--retry", "5", "--retry-all-errors", "--retry-delay", "3", "--output", str(public), url)
     assert digest(public) == meta["sha256"], "Public download verification failed"
