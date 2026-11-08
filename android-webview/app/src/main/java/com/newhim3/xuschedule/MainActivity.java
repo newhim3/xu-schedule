@@ -99,11 +99,17 @@ public class MainActivity extends Activity {
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 Uri uri=request.getUrl();
-                if(!"https".equals(uri.getScheme())||!"appassets.androidplatform.net".equals(uri.getHost()))return new WebResourceResponse("text/plain","UTF-8",new java.io.ByteArrayInputStream(new byte[0]));
                 String path=uri.getPath();
+                // The shared sync client uses an explicitly configured HTTPS endpoint.
+                // Keep external documents and arbitrary subresources blocked.
+                if(!request.isForMainFrame() && "https".equals(uri.getScheme()) && path!=null && path.endsWith("/api/sync")
+                        && ("GET".equals(request.getMethod()) || "PUT".equals(request.getMethod()) || "OPTIONS".equals(request.getMethod()))) return null;
+                if(!request.isForMainFrame() && "https".equals(uri.getScheme()) && path!=null && path.endsWith("/api/sync/login")
+                        && ("POST".equals(request.getMethod()) || "OPTIONS".equals(request.getMethod()))) return null;
+                if(!"https".equals(uri.getScheme())||!"appassets.androidplatform.net".equals(uri.getHost()))return new WebResourceResponse("text/plain","UTF-8",new java.io.ByteArrayInputStream(new byte[0]));
                 if(path==null||!path.startsWith("/assets/"))return null;
                 String file=path.substring(8);
-                if(!java.util.Arrays.asList("index.html","style.css","app.js","focus-core.js","planner.js","focus.js","background-lake.jpg","background-dunes.jpg","background-water.jpg","icon.svg","manifest.webmanifest","sw.js","web-assets.json").contains(file))return new WebResourceResponse("text/plain","UTF-8",new java.io.ByteArrayInputStream(new byte[0]));
+                if(!java.util.Arrays.asList("index.html","style.css","app.js","focus-core.js","planner.js","focus.js","tablet.js","sync-core.js","sync-ui.js","background-lake.jpg","background-dunes.jpg","background-water.jpg","icon.svg","manifest.webmanifest","sw.js","web-assets.json").contains(file))return new WebResourceResponse("text/plain","UTF-8",new java.io.ByteArrayInputStream(new byte[0]));
                 try {String mime=file.endsWith(".js")?"text/javascript":file.endsWith(".css")?"text/css":file.endsWith(".svg")?"image/svg+xml":file.endsWith(".jpg")?"image/jpeg":file.endsWith(".json")?"application/json":file.endsWith(".webmanifest")?"application/manifest+json":"text/html";return new WebResourceResponse(mime,file.endsWith(".jpg")?null:"UTF-8",getAssets().open(file));}catch(Exception e){return null;}
             }
         });
@@ -114,6 +120,17 @@ public class MainActivity extends Activity {
     private void checkForUpdate() { checkForUpdate(false); }
 
     private void checkForUpdate(boolean manual) {
+        if (getPackageName().equals("com.newhim3.xuschedule.tablet")) {
+            if (manual) {
+                Uri releases = Uri.parse("https://github.com/newhim3/xu-schedule/releases");
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, releases));
+                } catch (ActivityNotFoundException ignored) {
+                    Toast.makeText(this, releases.toString(), Toast.LENGTH_LONG).show();
+                }
+            }
+            return;
+        }
         executor.execute(() -> {
             try {
                 HttpURLConnection connection = (HttpURLConnection) new URL(UPDATE_MANIFEST+"?check="+System.currentTimeMillis()).openConnection();

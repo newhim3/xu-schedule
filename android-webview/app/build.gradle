@@ -2,16 +2,19 @@ plugins {
     id "com.android.application"
 }
 
+def tabletBuild = providers.gradleProperty("xuTablet").orNull == "true"
+
 android {
     namespace "com.newhim3.xuschedule"
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.newhim3.xuschedule"
+        applicationId(tabletBuild ? "com.newhim3.xuschedule.tablet" : "com.newhim3.xuschedule")
+        resValue "string", "distribution_app_name", tabletBuild ? "序 · 日程平板" : "序 · 日程"
         minSdk 23
         targetSdk 35
-        versionCode 21
-        versionName "1.10.2"
+        versionCode 22
+        versionName "1.11.0"
     }
 
     buildTypes {

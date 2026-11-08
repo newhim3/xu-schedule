@@ -68,6 +68,8 @@ jobs:
       - run: node scripts/test-clock-readable.cjs
       - run: node scripts/test-timeline-readable.cjs
       - run: node scripts/test-installed-version-ui.cjs
+      - run: node scripts/test-tablet-sync.cjs
+      - run: node scripts/test-sync-github.cjs
       - run: node scripts/test-goal-ui.cjs
       - run: node scripts/test-planner.cjs
       - run: node scripts/test-refinements.cjs

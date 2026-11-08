@@ -320,3 +320,22 @@ dialog.choice-sheet{box-sizing:border-box;color:#e5eced;background:linear-gradie
 .daily-timeline .time-block .session-check>span{width:min(14px,100%);height:min(14px,100%);min-height:0;min-width:0;flex-shrink:1}
 .screen:has(.daily-timeline) .today-button{position:relative}
 .screen:has(.daily-timeline) .today-button>span{position:absolute;left:50%;top:50%;transform:translate(-50%,-12%);font-size:8px;line-height:1;margin:0}
+.sync-conflict{font:11px/1.45 system-ui;white-space:pre-wrap;overflow-wrap:anywhere;max-height:155px;overflow:auto;padding:8px;background:#101b22;border-radius:6px}
+@media(min-width:740px){
+ #app{max-width:1440px;width:100%;margin:0 auto;min-height:100dvh;border:0;border-radius:0}
+ #app>.screen:has(.tablet-agenda){display:grid;grid-template-columns:minmax(0,1fr) clamp(235px,28vw,340px);grid-template-rows:auto auto minmax(0,1fr);column-gap:16px;align-content:start;padding:14px 16px calc(70px + var(--safe));min-height:100dvh}
+ .screen:has(.tablet-agenda)>.calendar-head{grid-column:1/-1;margin:0 0 6px}
+ .tablet-views{grid-column:1/-1;display:flex;gap:5px;padding:0 0 9px}
+ .tablet-views button{border:1px solid #ffffff20;border-radius:7px;padding:4px 15px;min-height:34px;font-size:12px;color:#cfdae5;background:#15212b55}
+ .tablet-views button[aria-pressed=true]{background:#284358;color:#eef7ff;border-color:#76b9df80}
+ .screen:has(.tablet-agenda)>.calendar-viewport{grid-column:1;grid-row:3;min-width:0}
+ .tablet-agenda{grid-column:2;grid-row:3;min-width:0;min-height:0;max-height:calc(100dvh - 185px);display:flex;flex-direction:column;background:#182633d9;border:1px solid #a8c8d22b;border-radius:12px;overflow:hidden}
+ .tablet-agenda header{padding:11px 13px;border-bottom:1px solid #ffffff1b}.tablet-agenda header>small{font-size:11px;color:#a7bac7;font-variant-numeric:tabular-nums}.tablet-agenda h2{margin:2px 0;font-size:16px;font-weight:600}.tablet-agenda h2 span{font-size:11px;color:#aac3cf;margin-left:5px}
+ .tablet-records{overflow:auto;overscroll-behavior:contain;min-height:0}.tablet-records>p{margin:12px;font-size:12px;color:#a7bac7}
+ .tablet-record{display:grid;grid-template-columns:minmax(56px,auto) minmax(0,1fr);gap:10px;align-items:start;width:100%;min-height:42px;padding:8px 11px;border-bottom:1px solid #ffffff12;text-align:left}.tablet-record:hover,.tablet-record:focus-visible{background:#36526455}
+ .tablet-record-time{font-size:10px;color:#9ecce0;font-variant-numeric:tabular-nums}.tablet-record-copy{overflow-wrap:anywhere}.tablet-record strong{display:block;font-size:13px;line-height:1.3;font-weight:500}.tablet-record small{display:block;margin-top:3px;font-size:11px;white-space:pre-wrap;color:#b5c6d0}
+ .screen:has(.tablet-agenda) .month-event-label{-webkit-line-clamp:3}.screen:has(.tablet-agenda) .month-event{font-size:11px;padding:3px 4px}.screen:has(.tablet-agenda) .month-event time{font-size:9px}
+ .screen:has(.tablet-agenda) .month-grid{column-gap:6px;row-gap:5px}.screen:has(.tablet-agenda) .month-cell{min-height:86px;padding:0 2px 6px;border-top:1px solid #ffffff16}.screen:has(.tablet-agenda) .month-date{min-height:28px;margin:2px 0 4px}.screen:has(.tablet-agenda) .month-date .number{width:26px;height:26px;font-size:13px}
+ .screen:has(.tablet-agenda)>.today-button{position:absolute;right:18px;top:62px;bottom:auto;width:34px;height:34px}.screen:has(.tablet-agenda)>.today-button span{top:17px}
+ #app>.dock{width:min(620px,85%);bottom:calc(12px + var(--safe))}.page{max-width:620px}.dialog{width:min(100%,560px)}
+}
