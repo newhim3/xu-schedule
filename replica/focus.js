@@ -1,4 +1,5 @@
 'use strict';
+let renderChainFocus;
 (()=>{
  const t=(zh,en)=>data.settings.language==='en'?en:zh;
  const themes={lake:['雾湖','Misty lake'],dunes:['沙丘','Quiet dunes'],water:['静水','Still water']};
@@ -198,11 +199,63 @@
  actions['focus-select-plan']=element=>{ui.focusPlan=element.dataset.id;ui.focusPlanGoal=null;render();};
  actions['focus-plan-goal']=element=>{const plan=data.items.find(item=>item.id===ui.focusPlan);if(plan&&planGoals(plan).some(goal=>goal.id===element.dataset.id)){ui.focusPlanGoal=element.dataset.id;render();}};
  actions['focus-select-goal']=element=>{ui.focusGoal=element.dataset.id;render();};
- actions['focus-start']=()=>{
+ function startFocus(minutes=0){
   const selected=selectedFocus();if(currentFocus()||!selected.ready){toast(t('请在可用时段选择目标','Choose an available goal and time'));return;}
-  const session=FocusCore.start({id:uid(),goalId:selected.goal.id,goalTitle:selected.goal.title,color:selected.goal.color,plan:selected.plan},Date.now());
+  const now=Date.now();
+  const session=FocusCore.start({id:uid(),goalId:selected.goal.id,goalTitle:selected.goal.title,color:selected.goal.color,plan:selected.plan},now);
+  if(minutes)session.deadline=Math.min(session.deadline||Infinity,now+minutes*60000);
   if(!selected.plan)session.planId=FocusCore.nearbyPlan(data.items,selected.goal.id,Date.now())?.id||null;
   if(commitSession(session)){render();}
+ }
+ actions['focus-start']=()=>startFocus();
+ let chainMinutes=0;
+ function chainPlan(){
+  const now=Date.now(),plans=plannedItems();
+  return plans.find(item=>FocusCore.available(item,now)&&planGoals(item).length);
+ }
+ actions['chain-focus-duration']=button=>{
+  const plan=ui.focusMode==='free'&&ui.focusGoal?null:chainPlan();
+  const duration=Math.ceil((plan?Math.max(0,FocusCore.range(plan)[1]-Date.now()):3600000)/60000);
+  chainMinutes=Math.min(480,Math.max(5,(chainMinutes||duration)+Number(button.dataset.delta)));
+  render();
+ };
+ actions['chain-focus-pick']=()=>{
+  const options=todoPool().filter(item=>!item.done);
+  if(!options.length){toast(t('先创建一个目标','Create a goal first'));return;}
+  showDialog(t('选择专注目标','Choose a focus goal'),`<label>${t('目标','Goal')}<select id="chain-focus-goal">${options.map(goal=>`<option value="${esc(goal.id)}" ${goal.id===ui.focusGoal?'selected':''}>${esc(goalPath(goal))}</option>`).join('')}</select></label>`,()=>{
+   ui.focusMode='free';ui.focusGoal=$('#chain-focus-goal').value;chainMinutes=0;return true;
+  },t('选择','Choose'));
+ };
+ actions['chain-focus-plan']=()=>{
+  ui.focusMode='planned';ui.focusGoal=null;chainMinutes=0;render();
+ };
+ actions['chain-focus-start']=()=>{
+  const plan=ui.focusMode==='free'&&ui.focusGoal?null:chainPlan();
+  if(plan){ui.focusMode='planned';ui.focusPlan=plan.id;ui.focusPlanGoal=$('#chain-focus-alternative')?.value||null;}
+  if(!plan&&ui.focusMode!=='free')return actions['chain-focus-pick']();
+  startFocus(chainMinutes||(plan?Math.ceil((FocusCore.range(plan)[1]-Date.now())/60000):60));
+ };
+ renderChainFocus=()=>{
+  const active=currentFocus(),plan=ui.focusMode==='free'&&ui.focusGoal?null:chainPlan();
+  const selected=ui.focusMode==='free'?selectedFocus().goal:planGoals(plan||{})[0];
+  const now=Date.now(),completed=data.focusSessions.filter(session=>session.status==='finished');
+  const total=completed.reduce((sum,session)=>sum+FocusCore.elapsed(session,now),0);
+  const next=eventsForDay(today()).filter(item=>item.kind==='event'&&!item.focusActual&&!item.done&&!item.allDay&&FocusCore.range(item)[0]>now).sort((a,b)=>a.time.localeCompare(b.time)).slice(0,3);
+  if(active){
+   const template=document.createElement('template');template.innerHTML=focusHTML();
+   return `<header class="chain-header"><h1>${t('专注','Focus')}</h1>${btn('settings',t('设置','Settings'),'settings','','chain-circle')}</header>${template.content.querySelector('.focus-timer').outerHTML}${template.content.querySelector('.focus-history').outerHTML}`;
+  }
+  const remaining=plan?Math.ceil((FocusCore.range(plan)[1]-now)/60000):60;
+  const minutes=chainMinutes||Math.min(480,remaining);
+  const plannedChoices=plan?.chooseAtStart?planGoals(plan):[];
+  return `<div class="chain-focus-head"><div><small>${t('已完成专注','Sessions')}</small><b>${completed.length}</b></div><div><small>${t('累计专注','Total focus')}</small><b>${Math.floor(total/3600000)}h ${Math.floor(total/60000)%60}m</b></div>${btn('chain-stats',t('数据板','Data board'),'grid','','chain-circle')}${btn('settings',t('设置','Settings'),'settings','','chain-circle')}</div>
+   <section class="chain-card chain-focus-timer"><div class="chain-focus-goal"><button data-action="chain-focus-pick"><b>${esc(selected?selected.title:t('选择一个目标','Choose a goal'))}</b><small>${esc(selected?.parentId?goalPath(selected,false):'')}</small>${icon('repeat')}</button></div>
+   ${plannedChoices.length>1?`<label class="chain-focus-choice">${t('本次执行','This session')} <select id="chain-focus-alternative">${plannedChoices.map(goal=>`<option value="${esc(goal.id)}">${esc(goalPath(goal))}</option>`).join('')}</select></label>`:''}
+   <div class="chain-minutes"><button data-action="chain-focus-duration" data-delta="-5" aria-label="${t('减五分钟','Subtract five minutes')}">−</button><div><strong>${minutes}</strong><small>${t('分钟','min')}</small></div><button data-action="chain-focus-duration" data-delta="5" aria-label="${t('加五分钟','Add five minutes')}">+</button></div>
+   <p>${plan?`${t('日程','Planned')} ${esc(plan.time)}–${esc(plan.endTime)} · ${t('预计','Ends')} ${FocusCore.parts(now+Math.min(remaining,minutes)*60000).time}`:`<button data-action="chain-focus-plan">${t('按日程选择','Use current plan')}</button>`}</p></section>
+   <button class="chain-card chain-next" data-action="chain-today"><b>${t('接下来','Up next')}</b>${next.map(item=>`<span>${esc(item.time)} ${esc(item.title)}</span>`).join('')||`<span>${t('今天没有后续安排','No more plans today')}</span>`}${icon('next')}</button>
+   <div class="chain-focus-links"><button class="chain-card" data-action="chain-today">${icon('calendar')}<b>${t('日程表','Schedule')}</b><span>${t('查看本周专注安排','View this week’s plans')}</span></button><button class="chain-card" data-action="chain-stats">${icon('clock')}<b>${t('专注记录','Focus records')}</b><span>${t('查看时长与分布','See duration and distribution')}</span></button></div>
+   <div class="chain-focus-buttons"><button class="chain-card" data-action="chain-add-block">${t('安排专注','Plan focus')}</button><button data-action="chain-focus-start">${t('立即专注','Start focusing')}</button></div>`;
  };
  for(const [action,method] of [['focus-pause','pause'],['focus-resume','resume'],['focus-extend','extend'],['focus-finish','finish']])actions[action]=()=>{const active=currentFocus();if(active&&commitSession(FocusCore[method](active,Date.now())))render();};
  function finishFocusDialog(session){
@@ -449,7 +502,7 @@
  document.addEventListener('change',event=>{if(event.target.id==='clock-labels'){data.settings.clockLabels=event.target.value==='inside'?'inside':'outside';persist();render();}if(event.target.dataset.setting==='liquidGlass')render();if(event.target.id==='day-display'){data.settings.dayDisplay=event.target.value==='clock'?'clock':'timeline';persist();render();}if(event.target.dataset.setting==='daytimeOnly')render();if(event.target.id==='card-density'&&Object.hasOwn(cardDensities,event.target.value)){data.settings.cardDensity=event.target.value;persist();render();}});
  actions['background-pick']=element=>{if(Object.hasOwn(themes,element.dataset.theme)){data.settings.calendarBackground=element.dataset.theme;persist();render();}};
  const repaint=render;
- render=function(){applyClockFont();document.documentElement.dataset.material=data.settings.liquidGlass===false?'flat':'glass';document.documentElement.dataset.cardDensity=Object.hasOwn(cardDensities,data.settings.cardDensity)?data.settings.cardDensity:'compact';const oldWeekly=document.querySelector('#app > .screen .timetable-scroll'),weeklyScroll=oldWeekly?.scrollTop;repaint();const weekly=document.querySelector('#app > .screen .timetable-scroll');if(weekly)weekly.scrollTop=weeklyScroll??144;const screen=document.querySelector('#app > .screen');if(screen){screen.dataset.background=data.settings.calendarBackground;if(ui.tab==='todos')screen.classList.add('task-list-screen');}const goal=data.items.find(item=>item.id===(currentFocus()?.goalId||selectedFocus().goal?.id));if(goal?.parentId)document.querySelector('.focus-timer h2')?.insertAdjacentHTML('afterend',`<p class="focus-origin">${esc(goalPath(goal))}</p>`);enhanceChoices();};
+ render=function(){applyClockFont();document.documentElement.dataset.material=data.settings.liquidGlass===false?'flat':'glass';document.documentElement.dataset.cardDensity=Object.hasOwn(cardDensities,data.settings.cardDensity)?data.settings.cardDensity:'compact';const oldWeekly=document.querySelector('#app > .screen .timetable-scroll'),weeklyScroll=oldWeekly?.scrollTop;repaint();const weekly=document.querySelector('#app > .screen .timetable-scroll');if(weekly)weekly.scrollTop=weeklyScroll??0;const screen=document.querySelector('#app > .screen');if(screen){screen.dataset.background=data.settings.calendarBackground;if(ui.tab==='todos')screen.classList.add('task-list-screen');}const goal=data.items.find(item=>item.id===(currentFocus()?.goalId||selectedFocus().goal?.id));if(goal?.parentId)document.querySelector('.focus-timer h2')?.insertAdjacentHTML('afterend',`<p class="focus-origin">${esc(goalPath(goal))}</p>`);enhanceChoices();};
  // Native <dialog> supplies focus containment, Escape behavior and top-layer stacking.
  // Every select keeps its original value/change contract; only its presentation changes.
  let choiceState=null;

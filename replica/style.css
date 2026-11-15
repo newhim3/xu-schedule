@@ -321,6 +321,9 @@ dialog.choice-sheet{box-sizing:border-box;color:#e5eced;background:linear-gradie
 .screen:has(.daily-timeline) .today-button{position:relative}
 .screen:has(.daily-timeline) .today-button>span{position:absolute;left:50%;top:50%;transform:translate(-50%,-12%);font-size:8px;line-height:1;margin:0}
 .sync-conflict{font:11px/1.45 system-ui;white-space:pre-wrap;overflow-wrap:anywhere;max-height:155px;overflow:auto;padding:8px;background:#101b22;border-radius:6px}
+.calendar-glass .month-title small{color:#e1e8ef}
+.calendar-glass .month-controls .icon-button{color:#e0e8ef}
+.schedule-dates .time-fields input{min-width:0;width:100%}
 @media(min-width:740px){
  #app{max-width:1440px;width:100%;margin:0 auto;min-height:100dvh;border:0;border-radius:0}
  #app>.screen:has(.tablet-agenda){display:grid;grid-template-columns:minmax(0,1fr) clamp(235px,28vw,340px);grid-template-rows:auto auto minmax(0,1fr);column-gap:16px;align-content:start;padding:14px 16px calc(70px + var(--safe));min-height:100dvh}
@@ -338,4 +341,5 @@ dialog.choice-sheet{box-sizing:border-box;color:#e5eced;background:linear-gradie
  .screen:has(.tablet-agenda) .month-grid{column-gap:6px;row-gap:5px}.screen:has(.tablet-agenda) .month-cell{min-height:86px;padding:0 2px 6px;border-top:1px solid #ffffff16}.screen:has(.tablet-agenda) .month-date{min-height:28px;margin:2px 0 4px}.screen:has(.tablet-agenda) .month-date .number{width:26px;height:26px;font-size:13px}
  .screen:has(.tablet-agenda)>.today-button{position:absolute;right:18px;top:62px;bottom:auto;width:34px;height:34px}.screen:has(.tablet-agenda)>.today-button span{top:17px}
  #app>.dock{width:min(620px,85%);bottom:calc(12px + var(--safe))}.page{max-width:620px}.dialog{width:min(100%,560px)}
+ #app>.dock::before{inset-inline:calc((100% - 100vw)/2);opacity:.78}
 }

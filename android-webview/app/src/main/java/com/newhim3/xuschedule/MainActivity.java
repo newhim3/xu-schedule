@@ -109,7 +109,7 @@ public class MainActivity extends Activity {
                 if(!"https".equals(uri.getScheme())||!"appassets.androidplatform.net".equals(uri.getHost()))return new WebResourceResponse("text/plain","UTF-8",new java.io.ByteArrayInputStream(new byte[0]));
                 if(path==null||!path.startsWith("/assets/"))return null;
                 String file=path.substring(8);
-                if(!java.util.Arrays.asList("index.html","style.css","app.js","focus-core.js","planner.js","focus.js","tablet.js","sync-core.js","sync-ui.js","background-lake.jpg","background-dunes.jpg","background-water.jpg","icon.svg","manifest.webmanifest","sw.js","web-assets.json").contains(file))return new WebResourceResponse("text/plain","UTF-8",new java.io.ByteArrayInputStream(new byte[0]));
+                if(!java.util.Arrays.asList("index.html","style.css","app.js","focus-core.js","planner.js","focus.js","tablet.js","sync-core.js","sync-ui.js","chain.css","chain.js","background-lake.jpg","background-dunes.jpg","background-water.jpg","icon.svg","manifest.webmanifest","sw.js","web-assets.json").contains(file))return new WebResourceResponse("text/plain","UTF-8",new java.io.ByteArrayInputStream(new byte[0]));
                 try {String mime=file.endsWith(".js")?"text/javascript":file.endsWith(".css")?"text/css":file.endsWith(".svg")?"image/svg+xml":file.endsWith(".jpg")?"image/jpeg":file.endsWith(".json")?"application/json":file.endsWith(".webmanifest")?"application/manifest+json":"text/html";return new WebResourceResponse(mime,file.endsWith(".jpg")?null:"UTF-8",getAssets().open(file));}catch(Exception e){return null;}
             }
         });

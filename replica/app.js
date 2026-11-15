@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION='1.11.0';
+const APP_VERSION='1.12.0';
 function installedVersionText(){const name=nativeStatus.native?(nativeStatus.version||'…'):APP_VERSION;return name+(nativeStatus.native&&Number.isInteger(nativeStatus.versionCode)?' ('+nativeStatus.versionCode+')':'');}
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -352,7 +352,11 @@ render=function(){
  renderPlannerContent();
  const stage=$('#app > .screen .calendar-stage');if(!stage)return;
  const timeline=stage.querySelector('.daily-timeline');
- if(timeline){const anchor=oldTimeline?Number(oldTimeline.dataset.start||0)+(oldScroll||0)/Number(oldTimeline.dataset.hourHeight||HOUR_HEIGHT)*60:480;timeline.scrollTop=Math.max(0,dayY(anchor));}
+ if(timeline){
+  const firstHour=Number(timeline.dataset.start||0);
+  const anchor=oldTimeline?Number(oldTimeline.dataset.start||0)+(oldScroll||0)/Number(oldTimeline.dataset.hourHeight||HOUR_HEIGHT)*60:firstHour;
+  timeline.scrollTop=Math.max(0,dayY(anchor));
+ }
  const months=stage.querySelector('.month-scroll');if(months)months.scrollTop=!motion?.resetMonthScroll&&oldMonth===ui.month?oldMonthScroll||0:0;
  if(!oldStage||!motion||motionReduced())return;
  const outgoing=document.createElement('div');outgoing.className='calendar-outgoing';outgoing.inert=true;outgoing.setAttribute('aria-hidden','true');

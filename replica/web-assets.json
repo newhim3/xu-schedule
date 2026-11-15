@@ -8,6 +8,8 @@
   "tablet.js",
   "sync-core.js",
   "sync-ui.js",
+  "chain.css",
+  "chain.js",
   "background-lake.jpg",
   "background-dunes.jpg",
   "background-water.jpg",
