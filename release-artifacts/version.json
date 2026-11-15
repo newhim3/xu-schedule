@@ -1,10 +1,10 @@
 {
-  "versionCode": 23,
-  "versionName": "1.12.0",
-  "sha256": "9872ad3a3bd1ac5b08aa06cda1a444cc12fc1ceaa38e51d40bf53787ce2f8dfb",
+  "versionCode": 24,
+  "versionName": "1.12.1",
+  "sha256": "e6964e3132f7ea49c56280b697c9f862228f6626caa1678fda185ed9f0f9510d",
   "certificateSha256": "50f747f676696e5f51e547ab8f122580b292b314d24bdfe74b0433a2855a646b",
-  "releaseNotes": "执律蓉 1.12.0（构建 23）\n\n- 应用更名为「执律蓉」，换用新的时钟与日出图标。\n- 在「设置 → 启用新版排程」切换浅色周表、目标和专注入口，两套界面共用原有记录。\n- 支持待排程专注块、手动摆放和改动撤销。新版可从当前计划直接进入专注。\n- 修复时间轴初始滚动遮住早间日程的问题，提高了壁纸背景上的标题对比度。\n- 手机版可直接覆盖升级；平板使用独立安装包。",
-  "sourceHash": "bed60cf258da7c03291305df21b195e79014b78f3c27240a2313bb91e36edbbe",
-  "validationRunId": 43709940832,
-  "sourceCommit": "453b8d53a9f3c0b381cc02b6d98e7d309ee17619"
+  "releaseNotes": "执律蓉 1.12.1（构建 24）\n\n- 新版排程仅替换课表周视图，恢复日、月、年和数据板切换。\n- 周表沿用应用配色，日期列加宽，长标题可换行，滚动时保留日期栏和时间轴。",
+  "sourceHash": "ab7a6767a8f9b7824ffb8a7b0197ed666dda38eca1552f128037051985dd7be8",
+  "validationRunId": 43712752253,
+  "sourceCommit": "74be673fe040eb7dc21fcff77d6bdf7e83dd680a"
 }
