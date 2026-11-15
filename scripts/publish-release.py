@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory() as directory:
     notes.write_text(meta["releaseNotes"] + "\n\n安装后请在设置中开启通知、精确闹钟及全屏提醒权限。更新安装需系统确认。", encoding="utf-8")
     existing = run("gh", "release", "view", tag, "--json", "assets", capture=True, check=False)
     if existing.returncode != 0:
-        run("gh", "release", "create", tag, "--target", os.environ["RELEASE_COMMIT"], "--draft", "--title", "序 · 日程 " + meta["versionName"], "--notes-file", str(notes))
+        run("gh", "release", "create", tag, "--target", os.environ["RELEASE_COMMIT"], "--draft", "--title", "执律蓉 " + meta["versionName"], "--notes-file", str(notes))
         assets = []
     else:
         assets = json.loads(existing.stdout)["assets"]

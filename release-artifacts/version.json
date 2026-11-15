@@ -1,10 +1,10 @@
 {
-  "versionCode": 22,
-  "versionName": "1.11.0",
-  "sha256": "fc58c6e366c6f9a5cb11f96559701bbf689a656deb9cdc89afcdde5e3808f4e2",
+  "versionCode": 23,
+  "versionName": "1.12.0",
+  "sha256": "9872ad3a3bd1ac5b08aa06cda1a444cc12fc1ceaa38e51d40bf53787ce2f8dfb",
   "certificateSha256": "50f747f676696e5f51e547ab8f122580b292b314d24bdfe74b0433a2855a646b",
-  "releaseNotes": "手机版 1.11.0（构建 22），可覆盖安装上一版。\n\n- 完整备份可在手机与平板之间导入和合并，带上日程、任务、目标、专注记录和感悟。\n- 新增同步账号入口。部署同步服务后，两端用同一个账号登录即可同步。离线备份可直接使用。\n- 平板使用独立安装包。手机版用户直接在设置里检查更新。",
-  "sourceHash": "64aedba3c6268e7152f1d61540b0dbccfd39b74556c21e409038e040d2194e51",
-  "validationRunId": 42447025060,
-  "sourceCommit": "9443197680c2174390addf6658337ecbfb3d98d1"
+  "releaseNotes": "执律蓉 1.12.0（构建 23）\n\n- 应用更名为「执律蓉」，换用新的时钟与日出图标。\n- 在「设置 → 启用新版排程」切换浅色周表、目标和专注入口，两套界面共用原有记录。\n- 支持待排程专注块、手动摆放和改动撤销。新版可从当前计划直接进入专注。\n- 修复时间轴初始滚动遮住早间日程的问题，提高了壁纸背景上的标题对比度。\n- 手机版可直接覆盖升级；平板使用独立安装包。",
+  "sourceHash": "bed60cf258da7c03291305df21b195e79014b78f3c27240a2313bb91e36edbbe",
+  "validationRunId": 43709940832,
+  "sourceCommit": "453b8d53a9f3c0b381cc02b6d98e7d309ee17619"
 }
