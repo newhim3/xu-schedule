@@ -61,10 +61,10 @@
       <div class="chain-weekbar">${action('chain-week',tr('上一周','Previous week'),'back','data-step="-7"')}<strong>${dayLabel(start)} – ${dayLabel(dates[6])}</strong>${action('chain-week',tr('下一周','Next week'),'next','data-step="7"')}</div>
       ${action('chain-history',tr('改动记录','Change history'),'history')}</header>
       ${last ? `<div class="chain-feedback"><span>${esc(summary(last))}</span><button data-action="chain-undo" data-id="${last.id}">${tr('撤销','Undo')}</button></div>` : `<p class="chain-count">${tr('本周','This week')} <b>${records.length}</b> · ${tr('已完成','Completed')} <b>${records.filter(item=>item.focusActual||item.done).length}</b></p>`}
-      <section class="chain-card chain-week"><div class="chain-dates"><button class="chain-today" data-action="chain-today" aria-label="${tr('回到今天','Back to today')}">${tr('今','Now')}</button>${dates.map((date,index)=>`<div><small>${tr('周'+'一二三四五六日'[index],['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index])}</small><b class="${today()===date?'is-current':''}">${Number(date.slice(8))}</b></div>`).join('')}</div>
+      <section class="chain-card chain-week"><div class="chain-week-scroll"><div class="chain-dates"><button class="chain-today" data-action="chain-today" aria-label="${tr('回到今天','Back to today')}">${tr('今','Now')}</button>${dates.map((date,index)=>`<div><small>${tr('周'+'一二三四五六日'[index],['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index])}</small><b class="${today()===date?'is-current':''}">${Number(date.slice(8))}</b></div>`).join('')}</div>
       ${notes.length ? `<div class="chain-extra">${notes.join('')}</div>` : ''}
       <div class="chain-grid"><div class="chain-hours">${Array.from({length:9},(_,index)=>`<span style="top:${index * 120/(pm-am)*100}%">${index*2+6}</span>`).join('')}</div>${columns}
-      ${dates.includes(now.date)&&elapsed>=am&&elapsed<pm ? `<span class="chain-now" style="--day:${dates.indexOf(now.date)};--top:${(elapsed-am)/(pm-am)*100}%"></span>` : ''}</div>${legend()}</section>
+      ${dates.includes(now.date)&&elapsed>=am&&elapsed<pm ? `<span class="chain-now" style="--day:${dates.indexOf(now.date)};--top:${(elapsed-am)/(pm-am)*100}%"></span>` : ''}</div></div>${legend()}</section>
       <section class="chain-card chain-queue"><header><h2>${tr('待排程','Unscheduled')} · ${waiting.length}</h2><button data-action="chain-add-block">${tr('＋ 添加','＋ Add')}</button></header>
       ${waiting.length ? `<div class="chain-pending">${waiting.map(item=>`<button style="--tone:${tone(item)}" data-action="chain-place" data-id="${esc(item.id)}" draggable="true" aria-pressed="${placing===item.id}"><b>${esc(title(item))}</b><small>${Math.max(15,(minuteOf(item.endTime)??60)-(minuteOf(item.time)??0))} ${tr('分钟','min')}</small></button>`).join('')}</div>` : `<p>${tr('从目标添加专注块，或直接在周表上点选时间。','Add a focus block from Goals or pick a time in the week.')}</p>`}
       ${placing ? `<p role="status">${tr('点选周表上的时间以放置专注块。','Tap a time in the week to place the block.')}</p>` : ''}</section>`;
@@ -253,7 +253,7 @@
   settingsHTML = () => {
     const html=previousSettings();
     if(panel.sub!=='root') return html;
-    return html.replace(/(<\/div>)(?=<div class="setting-card"|<div class="section-caption")/, `$1<div class="setting-card">${rowToggle(tr('启用新版排程','Use new schedule layout'),'chainLayout',active(),true,tr('浅色周表、目标与专注界面','Light weekly schedule, goals and focus screens'))}</div>`);
+    return html.replace(/(<\/div>)(?=<div class="setting-card"|<div class="section-caption")/, `$1<div class="setting-card">${rowToggle(tr('启用新版排程','Use new schedule layout'),'chainLayout',active(),true,tr('仅替换课表周视图，保留日、月、年视图','Replace weekly timetable only'))}</div>`);
   };
   const previousPanel = panelHTML;
   panelHTML = () => panel.type==='chain-history'?historyHTML():previousPanel();
@@ -261,33 +261,14 @@
   render = () => {
     previousRender();
     const screen = $('#app > .screen');
-    const enabled = active()&&!ui.batch;
-    document.documentElement.classList.toggle('chain-mode',enabled);
+    const enabled = active() && !ui.batch && ui.tab==='calendar' && ui.calendarView==='Timetable';
+    document.documentElement.classList.remove('chain-mode');
     if(!screen || !enabled)return;
-    if(ui.tab==='calendar'&&ui.calendarView!=='Dashboard') screen.innerHTML=schedule();
-    if(ui.tab==='todos') screen.innerHTML=goals();
-    if(ui.tab==='focus') screen.innerHTML=renderChainFocus();
-    screen.classList.toggle('chain-screen',ui.tab!=='insights'&&(ui.tab!=='calendar'||ui.calendarView!=='Dashboard'));
-    const dock=$('#app .dock');
-    if(!dock)return;
-    const control=dock.querySelector('.round');
-    if(control) {
-      control.dataset.action='settings';
-      control.setAttribute('aria-label',tr('设置','Settings'));
-      control.innerHTML=icon('settings');
-    }
-  };
-  const previousTab=actions.tab;
-  actions.tab=button=>{
-    if(active()&&button.dataset.tab==='calendar'&&ui.calendarView==='Dashboard')ui.calendarView='Week';
-    previousTab(button);
+    screen.innerHTML=schedule();
+    screen.classList.add('chain-screen');
   };
   document.addEventListener('change', event=>{
-    if(event.target.dataset.setting==='chainLayout') {
-      placing='';
-      if(active()&&ui.calendarView==='Dashboard')ui.calendarView='Week';
-      render();
-    }
+    if(event.target.dataset.setting==='chainLayout') { placing=''; render(); }
   });
   paths.history='M3 11a9 9 0 1 1 2.5 7M3 5v6h6M12 7v5l3 2';
   render();

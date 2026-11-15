@@ -1,5 +1,3 @@
-.chain-mode, .chain-mode body { background:#f1f2f4; }
-.chain-mode #app { background:#f1f2f4; }
 #app > .chain-screen, .chain-history-page {
   --chain-ink:#181c23;
   --chain-muted:#626b79;
@@ -127,14 +125,28 @@
 .chain-screen .focus-timer { background:white; border:0; box-shadow:var(--chain-shadow); }
 .chain-screen .focus-timer .focus-clock, .chain-screen .focus-state,.chain-screen .focus-until,.chain-screen .focus-history { color:#4c5667; }
 .chain-screen .focus-timer .focus-controls button { color:#242d39; background:#e8eff1; }
-.chain-mode #app:has(.chain-screen) .dock::before { background:linear-gradient(transparent,#f1f2f4 54%); inset-inline:calc((100% - 100vw)/2); }
-.chain-mode #app:has(.chain-screen) .dock .round, .chain-mode #app:has(.chain-screen) .dock .switcher { background:white; color:#222932; border:1px solid #e3e7eb; box-shadow:0 4px 12px #20263315; }
-.chain-mode #app:has(.chain-screen) .dock .switcher button { color:#434b58; }
-.chain-mode #app:has(.chain-screen) .dock .switcher .active { color:#a42e48; font-weight:700; }
-.chain-mode #app:has(.chain-screen) .dock .switcher::before { background:#fce8ed; border-color:transparent; box-shadow:none; }
 @media(max-width:360px) {
   .chain-dates,.chain-grid { --axis:17px; }
   .chain-legend { gap:6px; }
   .chain-block { border-radius:5px; }
   .chain-header h1 { font-size:22px; }
 }
+
+/* The alternate weekly surface follows the existing application theme. */
+#app > .chain-screen { background:var(--bg); color:var(--text); padding-top:24px; --chain-ink:var(--text); --chain-muted:var(--muted); --chain-line:var(--line); }
+.chain-screen .chain-card { background:var(--panel); border:1px solid var(--line); box-shadow:none; }
+.chain-screen .chain-circle { background:var(--panel); color:var(--text); }
+.chain-screen .chain-weekbar strong,.chain-screen .chain-dates small,.chain-screen .chain-hours { color:var(--muted); }
+.chain-week-scroll { overflow-x:auto; overscroll-behavior-x:contain; }
+.chain-week-scroll .chain-dates,.chain-week-scroll .chain-grid { min-width:770px; }
+.chain-week-scroll .chain-grid { height:1190px; }
+.chain-screen .chain-day-column { background:repeating-linear-gradient(to bottom,var(--line) 0 1px,transparent 1px calc(100% * 2 / 17)); }
+.chain-block { white-space:normal; overflow-wrap:anywhere; text-overflow:clip; text-align:left; font-size:11px; line-height:1.25; font-weight:550; padding:2px 4px; }
+.chain-block.is-short { font-size:8px; padding:0 2px; line-height:1; }
+.chain-screen .chain-block:not(.is-done):not(.is-fixed) { color:color-mix(in srgb,var(--tone) 50%,var(--text)); background:color-mix(in srgb,var(--tone) 18%,var(--panel)); }
+.chain-screen .chain-block.is-fixed { color:var(--text); background:color-mix(in srgb,var(--muted) 22%,var(--panel)); }
+.chain-screen .chain-queue p { line-height:1.6; }
+
+.chain-week-scroll { max-height:calc(100dvh - 250px); min-height:320px; overflow:auto; }
+.chain-week-scroll .chain-dates { position:sticky; top:0; z-index:4; background:var(--panel); padding-bottom:6px; }
+.chain-week-scroll .chain-hours { position:sticky; left:0; z-index:3; background:var(--panel); }
