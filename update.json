@@ -1,7 +1,7 @@
 {
-  "versionCode": 24,
-  "versionName": "1.12.1",
-  "sha256": "e6964e3132f7ea49c56280b697c9f862228f6626caa1678fda185ed9f0f9510d",
-  "releaseNotes": "执律蓉 1.12.1（构建 24）\n\n- 新版排程仅替换课表周视图，恢复日、月、年和数据板切换。\n- 周表沿用应用配色，日期列加宽，长标题可换行，滚动时保留日期栏和时间轴。",
-  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.12.1/xu-schedule-1.12.1.apk"
+  "versionCode": 25,
+  "versionName": "1.12.2",
+  "sha256": "2a6bb5cec1ed6df5d589acc301820ce4175d94edf3f12699fd8b1354e0b986a6",
+  "releaseNotes": "执律蓉 1.12.2（构建 25）。手动补记专注时长可超过原计划及已计时时长，暂停间隔保留。",
+  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.12.2/xu-schedule-1.12.2.apk"
 }
