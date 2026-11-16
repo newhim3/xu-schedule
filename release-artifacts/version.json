@@ -1,10 +1,10 @@
 {
-  "versionCode": 24,
-  "versionName": "1.12.1",
-  "sha256": "e6964e3132f7ea49c56280b697c9f862228f6626caa1678fda185ed9f0f9510d",
+  "versionCode": 25,
+  "versionName": "1.12.2",
+  "sha256": "2a6bb5cec1ed6df5d589acc301820ce4175d94edf3f12699fd8b1354e0b986a6",
   "certificateSha256": "50f747f676696e5f51e547ab8f122580b292b314d24bdfe74b0433a2855a646b",
-  "releaseNotes": "执律蓉 1.12.1（构建 24）\n\n- 新版排程仅替换课表周视图，恢复日、月、年和数据板切换。\n- 周表沿用应用配色，日期列加宽，长标题可换行，滚动时保留日期栏和时间轴。",
-  "sourceHash": "ab7a6767a8f9b7824ffb8a7b0197ed666dda38eca1552f128037051985dd7be8",
-  "validationRunId": 43712752253,
-  "sourceCommit": "74be673fe040eb7dc21fcff77d6bdf7e83dd680a"
+  "releaseNotes": "执律蓉 1.12.2（构建 25）。手动补记专注时长可超过原计划及已计时时长，暂停间隔保留。",
+  "sourceHash": "1f30562ebaf4f6d1bd5fe3a3d595e7acc6a81ba7e371b6d7a58a8f543a6094d1",
+  "validationRunId": 43838780181,
+  "sourceCommit": "680e8b7f227ae623a28cfd1f653311cd813f9d90"
 }
