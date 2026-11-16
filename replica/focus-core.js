@@ -22,7 +22,14 @@ const FocusCore={
  extend(session,now){const copy=this.reconcile(session,now);if(copy.status==='boundary'){copy.extended=true;copy.status='running';copy.segments.push({start:copy.wasRunning?copy.deadline:now,end:null});}return copy;},
  finish(session,now){const copy=this.reconcile(session,now);for(const segment of copy.segments)if(segment.end===null)segment.end=now;copy.status='finished';copy.finishedAt=now;return copy;},
  finishWithDuration(session,milliseconds,now){
-  const copy=this.finish(session,now),elapsed=this.elapsed(copy,now);if(!Number.isSafeInteger(milliseconds)||milliseconds<=0||milliseconds>elapsed)throw Error('Duration outside recorded focus');
+  const copy=this.finish(session,now),elapsed=this.elapsed(copy,now);
+  if(!Number.isSafeInteger(milliseconds)||milliseconds<=0)throw Error('Invalid focus duration');
+  if(milliseconds>elapsed){
+   const last=copy.segments.at(-1);
+   const end=last.end+milliseconds-elapsed;
+   if(end>now)throw Error('Focus duration would end in the future');
+   last.end=end;
+  }
   let remaining=milliseconds;copy.segments=copy.segments.flatMap(part=>{const length=Math.min(remaining,part.end-part.start);remaining-=length;return length>0?[{start:part.start,end:part.start+length}]:[];});copy.correctedFrom=elapsed;copy.correctedAt=now;return copy;
  },
  snap(minutes){return Math.max(0,Math.min(1440,Math.round(minutes/15)*15));},
