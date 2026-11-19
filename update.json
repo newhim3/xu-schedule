@@ -1,7 +1,7 @@
 {
-  "versionCode": 25,
-  "versionName": "1.12.2",
-  "sha256": "2a6bb5cec1ed6df5d589acc301820ce4175d94edf3f12699fd8b1354e0b986a6",
-  "releaseNotes": "执律蓉 1.12.2（构建 25）。手动补记专注时长可超过原计划及已计时时长，暂停间隔保留。",
-  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.12.2/xu-schedule-1.12.2.apk"
+  "versionCode": 26,
+  "versionName": "1.12.3",
+  "sha256": "30b474fe148bf67adf70193fa7384563ff8145f39359e51a00c29d2652c5cefc",
+  "releaseNotes": "执律蓉 1.12.3（构建 26）\n\n- 日程表默认从今天开始，横向滑动可回看之前的日期。短块与重叠日程分列排版，完整展示主目标和小目标，字号随可用空间调整。\n- 日、周、月、年和数据板均提供预设任务块。长按拖到日历可安排时间，预设可重复使用。\n- 平板使用双栏排程工作区，右栏保留预设和当天安排，编辑日程时打开居中窗口。手机和平板沿用同一套账号同步。",
+  "apkUrl": "https://github.com/newhim3/xu-schedule/releases/download/v1.12.3/xu-schedule-1.12.3.apk"
 }
