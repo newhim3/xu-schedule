@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION='1.12.2';
+const APP_VERSION='1.12.3';
 function installedVersionText(){const name=nativeStatus.native?(nativeStatus.version||'…'):APP_VERSION;return name+(nativeStatus.native&&Number.isInteger(nativeStatus.versionCode)?' ('+nativeStatus.versionCode+')':'');}
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
