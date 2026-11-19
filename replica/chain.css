@@ -150,3 +150,115 @@
 .chain-week-scroll { max-height:calc(100dvh - 250px); min-height:320px; overflow:auto; }
 .chain-week-scroll .chain-dates { position:sticky; top:0; z-index:4; background:var(--panel); padding-bottom:6px; }
 .chain-week-scroll .chain-hours { position:sticky; left:0; z-index:3; background:var(--panel); }
+.chain-week-scroll {
+  --week-day-width: clamp(85px, 29vw, 120px);
+  max-height: calc(100dvh - 335px);
+  min-height: 260px;
+}
+.chain-week-scroll .chain-grid,
+.chain-week-scroll .chain-dates {
+  min-width: 0;
+  width: calc(var(--axis) + 14 * var(--week-day-width));
+  grid-template-columns: var(--axis) repeat(14, var(--week-day-width));
+}
+.chain-week-scroll .chain-grid { height: 1190px; }
+.chain-week-scroll .chain-now {
+  left: calc(var(--axis) + var(--week-day-width) * var(--day));
+  width: var(--week-day-width);
+}
+.chain-week-scroll .chain-today { position: sticky; left: 0; z-index: 5; background: var(--panel); }
+.chain-block {
+  display: flex;
+  align-items: center;
+  padding: 1px;
+  border-radius: 4px;
+  text-align: left;
+}
+.chain-block-copy { display: block; width: 100%; min-width: 0; }
+.chain-block-copy strong, .chain-block-copy small {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.12;
+}
+.chain-block-copy strong { font-weight: 750; }
+.chain-block-copy small { font-weight: 500; opacity: .94; }
+.calendar-presets {
+  --chain-muted: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  margin: 0;
+  padding: 3px 8px;
+}
+.calendar-presets h2 { font-size: 12px; }
+.calendar-presets header button { min-height: 27px; color: var(--text); }
+.calendar-presets p { font-size: 9px; margin: 2px 0; }
+.calendar-presets .chain-pending { flex-wrap: nowrap; overflow-x: auto; padding: 2px 0; }
+.preset-entry { display: flex; flex: none; }
+.calendar-presets .preset-chip {
+  touch-action: none;
+  user-select: none;
+  min-height: 32px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--tone) 28%, var(--panel));
+  font-size: 11px;
+}
+.calendar-presets .preset-remove { min-height: 32px; width: 23px; background: transparent; color: var(--muted); }
+.preset-drop-highlight { outline: 2px solid #64cfac; outline-offset: -2px; }
+.preset-drag-ghost {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  left: 0;
+  max-width: min(180px, 45vw);
+  background: #234c47;
+  border: 1px solid #64cfac;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+@media(max-width:739px) {
+  #app > .screen:has(> .calendar-presets) { padding-bottom: calc(170px + var(--safe)); }
+  .screen > .calendar-presets {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(70px + var(--safe));
+    z-index: 9;
+    width: min(calc(100% - 20px), 460px);
+    border-radius: 13px;
+  }
+  .screen:has(> .calendar-presets) :is(.daily-timeline,.timetable-scroll,.month-scroll,.calendar-dashboard) {
+    max-height: calc(100dvh - 330px);
+  }
+  .screen:has(> .calendar-presets) .today-button { bottom: calc(154px + var(--safe)); }
+}
+@media(min-width:740px) {
+  #app > .chain-screen:has(.calendar-workspace-side) {
+    max-width: 1440px;
+    grid-template-rows: auto auto auto minmax(0,1fr);
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .chain-screen > .chain-header, .chain-screen > .chain-count, .chain-screen > .chain-feedback { grid-column: 1/-1; }
+  .chain-screen > .chain-week { grid-column: 1; grid-row: 4; min-width: 0; align-self: start; }
+  .chain-screen > .calendar-workspace-side { grid-row: 4; }
+  .chain-week-scroll { container-type: inline-size; max-height: calc(100dvh - 235px); }
+  .chain-week-scroll .chain-grid, .chain-week-scroll .chain-dates { --week-day-width: max(62px, calc((100cqw - var(--axis)) / 7)); }
+  .calendar-workspace-side .calendar-presets { flex: none; border: 0; border-radius: 0; padding: 7px 11px; }
+  .calendar-workspace-side .chain-pending { display: grid; max-height: 31dvh; overflow: auto; }
+  .calendar-workspace-side .preset-chip { flex: 1; }
+  #overlay > .tablet-event-editor {
+    inset: 50% auto auto 50%;
+    width: min(620px, calc(100vw - 88px));
+    height: min(700px, calc(100dvh - 88px));
+    translate: 0 -50%;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    box-shadow: 0 20px 80px #0009;
+  }
+}

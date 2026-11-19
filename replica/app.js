@@ -264,7 +264,7 @@ function monthDates(month){
 }
 function itemLastDate(item){return item.endDate&&item.endDate>=item.date?item.endDate:item.date;}
 eventsForDay=(date,includeCompleted=data.settings.showCompleted)=>data.items.filter(item=>item.date&&included(item)&&(!item.done||includeCompleted)&&item.date<=date&&itemLastDate(item)>=date);
-function dayNumber(date,mini=false){return `<span class="${mini?'mini-number':'number'} ${date===today()?'is-today':''}">${Number(date.slice(8))}</span>`;}
+function dayNumber(date,mini=false){return `<span data-drop-date="${date}" class="${mini?'mini-number':'number'} ${date===today()?'is-today':''}">${Number(date.slice(8))}</span>`;}
 function weekdaysHTML(){return `<div class="weekdays">${Array.from({length:7},(_,i)=>`<span>${['日','一','二','三','四','五','六'][(i+data.settings.weekStart)%7]}</span>`).join('')}</div>`;}
 function miniMonthHTML(month){
  const first=month+'-01',offset=(parseDate(first).getDay()-data.settings.weekStart+7)%7;
