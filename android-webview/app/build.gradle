@@ -13,8 +13,8 @@ android {
         resValue "string", "distribution_app_name", tabletBuild ? "执律蓉 · 平板" : "执律蓉"
         minSdk 23
         targetSdk 35
-        versionCode 26
-        versionName "1.12.3"
+        versionCode 27
+        versionName "1.12.4"
     }
 
     buildTypes {

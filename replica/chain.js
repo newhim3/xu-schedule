@@ -5,6 +5,8 @@
   const title = item => item?.title || tr('未命名', 'Untitled');
   const am = 6 * 60;
   const pm = 23 * 60;
+  const hourPixels = 34;
+  const gridHeight = (pm-am)/60*hourPixels;
   const historyKey = 'calendar-chain-history';
   let history = [];
   try {
@@ -47,8 +49,8 @@
         cluster = []; laneEnds = []; clusterEnd = -1;
       };
       for (const segment of segments) {
-        const top = (Math.max(am,segment.start)-am)*70/60;
-        const height = Math.min(1190-top, Math.max(14,(Math.min(pm,segment.end)-Math.max(am,segment.start))*70/60-2));
+        const top = (Math.max(am,segment.start)-am)*hourPixels/60;
+        const height = Math.min(gridHeight-top, Math.max(12,(Math.min(pm,segment.end)-Math.max(am,segment.start))*hourPixels/60-2));
         if (top >= clusterEnd) finishCluster();
         let lane = laneEnds.findIndex(end => end <= top);
         if (lane < 0) lane = laneEnds.length;
@@ -70,7 +72,9 @@
           const details=[...new Set([goal&&goal!==root?title(goal):'',title(item)].filter(text=>text&&text!==heading))].join(' · ');
           const done=item.focusActual||item.done;
           const description=[heading,details,timeLabel(start)+'–'+timeLabel(end)].filter(Boolean).join(' · ');
-          return `<button class="chain-block ${!item.taskBlock&&!item.focusActual?'is-fixed':''} ${done?'is-done':''}" style="--tone:${tone(item)};top:${top}px;height:${height}px;left:${lane/lanes*100}%;width:calc(${100/lanes}% - 2px)" data-action="chain-block" data-id="${esc(item.id)}" ${!done?'draggable="true"':''} aria-label="${esc(description)}" title="${esc(description)}"><span class="chain-block-copy"><strong>${esc(heading)}</strong>${details?`<small>${esc(details)}</small>`:''}</span></button>`;
+          const check = item.focusActual ? '' : `<button class="chain-complete" data-action="finish-session" data-id="${esc(item.id)}" role="checkbox" aria-checked="${!!item.done}" aria-label="${esc((item.done?tr('撤销完成','Mark incomplete'):tr('标记完成','Mark complete'))+' · '+heading)}" ${!item.done&&!GoalCore.canComplete(item)?'disabled':''}><span>${item.done?icon('check'):''}</span></button>`;
+          return `<article class="chain-block ${!item.taskBlock&&!item.focusActual?'is-fixed':''} ${done?'is-done':''}" style="top:${top}px;height:${height}px;left:${lane/lanes*100}%;width:calc(${100/lanes}% - 2px)"><button class="chain-block-open" data-action="chain-block" data-id="${esc(item.id)}" aria-label="${esc(description)}" title="${esc(description)}"><span class="chain-block-copy"><strong>${esc(heading)}</strong>${details?`<small>${esc(details)}</small>`:''}</span></button>${check}</article>`;
+
         }).join('')}
       </div>`;
     }).join('');
@@ -84,8 +88,8 @@
       <div class="chain-weekbar">${action('chain-week',tr('上一周','Previous week'),'back','data-step="-7"')}<strong>${dayLabel(start)} – ${dayLabel(dates.at(-1))}</strong>${action('chain-week',tr('下一周','Next week'),'next','data-step="7"')}</div>
       ${action('chain-history',tr('改动记录','Change history'),'history')}</header>
       ${last ? `<div class="chain-feedback"><span>${esc(summary(last))}</span><button data-action="chain-undo" data-id="${last.id}">${tr('撤销','Undo')}</button></div>` : `<p class="chain-count">${tr('本周','This week')} <b>${records.length}</b> · ${tr('已完成','Completed')} <b>${records.filter(item=>item.focusActual||item.done).length}</b></p>`}
-      <section class="chain-card chain-week"><div class="chain-week-scroll" data-anchor="${start}"><div class="chain-dates"><button class="chain-today" data-action="chain-today" aria-label="${tr('回到今天','Back to today')}">${tr('今','Now')}</button>${dates.map((date,index)=>`<div><small>${tr('周'+'日一二三四五六'[parseDate(date).getDay()],['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseDate(date).getDay()])}</small><b class="${today()===date?'is-current':''}">${Number(date.slice(8))}</b></div>`).join('')}</div>
-      <div class="chain-grid"><div class="chain-hours">${Array.from({length:9},(_,index)=>`<span style="top:${index * 120/(pm-am)*100}%">${index*2+6}</span>`).join('')}</div>${columns}
+      <section class="chain-card chain-week"><div class="chain-week-scroll" data-anchor="${start}"><div class="chain-dates"><button class="chain-today" data-action="chain-today" aria-label="${tr('回到今天','Back to today')}">${tr('今','Now')}</button>${dates.map(date=>`<div data-date="${date}"><small>${tr('周'+'日一二三四五六'[parseDate(date).getDay()],['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseDate(date).getDay()])}</small><b class="${today()===date?'is-current':''}">${Number(date.slice(8))}</b></div>`).join('')}</div>
+      <div class="chain-grid" style="height:${gridHeight}px"><div class="chain-hours">${Array.from({length:9},(_,index)=>`<span style="top:${index * 120/(pm-am)*100}%">${index*2+6}</span>`).join('')}</div>${columns}
       ${dates.includes(now.date)&&elapsed>=am&&elapsed<pm ? `<span class="chain-now" style="--day:${dates.indexOf(now.date)};--top:${(elapsed-am)/(pm-am)*100}%"></span>` : ''}</div></div>${legend()}${notes.length ? `<div class="chain-extra">${notes.join('')}</div>` : ''}</section>
       `;
   }
@@ -178,6 +182,13 @@
     if(!item || item.done || data.focusSessions.some(session=>session.planId===id)) return;
     const before = item.planOriginal || item;
     const duration = (item.date ? GoalCore.durationMinutes(before) : minuteOf(item.endTime) - minuteOf(item.time)) || 60;
+    if (minutes===null && item.allDay) {
+      const days = Math.round((parseDate(itemLastDate(item))-parseDate(item.date))/86400000);
+      writeRecord(item,{...item,date,endDate:addDays(date,days)});
+      return;
+    }
+    minutes ??= minuteOf(item.date?item.time:'') ?? 540;
+    if(!item.preset && date===item.date && minutes===minuteOf(item.time))return;
     const finish = minutes+duration;
     const {preset,...fields}=item;
     writeRecord(preset?null:item,{...fields,id:preset?uid():item.id,date,time:timeLabel(minutes),endDate:addDays(date,Math.floor(finish/1440)),endTime:timeLabel(finish%1440),allDay:false});
@@ -208,7 +219,7 @@
   };
   function minutesAt(column, y) {
     const bounds = column.getBoundingClientRect();
-    return Math.min(pm-15,Math.max(am,Math.floor(((y-bounds.top)/bounds.height*(pm-am)+am)/15)*15));
+    return snap(am+(y-bounds.top)/bounds.height*(pm-am), am, pm);
   }
   document.addEventListener('click', event => {
     const target = event.target.closest('.chain-grid-target');
@@ -232,23 +243,6 @@
     showDialog(title(item),`<p class="note">${esc(location(item))}</p><div class="chain-dialog-actions"><button data-action="chain-edit" data-id="${esc(item.id)}">${tr('编辑详情','Edit details')}</button><button data-action="chain-place" data-id="${esc(item.id)}">${tr('移动到其他时段','Move to another time')}</button></div>`,()=>true,tr('关闭','Close'));
   };
   actions['chain-edit'] = button => actions.edit(button);
-  let dragged = '';
-  document.addEventListener('dragstart', event => {
-    const block = event.target.closest('.chain-block[draggable],.chain-pending button');
-    if(!block)return;
-    dragged=block.dataset.id;
-    event.dataTransfer.setData('text/plain',dragged);
-    event.dataTransfer.effectAllowed='move';
-  });
-  document.addEventListener('dragend',()=>{dragged='';});
-  document.addEventListener('dragover',event=>{if(dragged&&event.target.closest('.chain-day-column'))event.preventDefault();});
-  document.addEventListener('drop',event=>{
-    const column=event.target.closest('.chain-day-column');
-    if(!dragged||!column)return;
-    event.preventDefault();
-    place(dragged,column.dataset.chainDate,minutesAt(column,event.clientY));
-    dragged='';
-  });
   actions['chain-week'] = button => {
     weekAnchor=addDays(weekAnchor||today(),Number(button.dataset.step));
     ui.selected=weekAnchor;
@@ -298,36 +292,54 @@
     render();
   };
 
-  function targetAt(x,y) {
+  function snap(minute,start=0,end=1440){
+    return Math.max(start,Math.min(end-15, Math.round(minute/15)*15));
+  }
+  function timelineTarget(node,date,y,start,end,hourHeight){
+    const minute=snap(start+(y-node.getBoundingClientRect().top)*60/hourHeight,start,end);
+    return {node,date,minute,lineTop:(minute-start)/60*hourHeight};
+  }
+  function targetAt(x,y){
     const element=document.elementFromPoint(x,y);
     if(!element?.closest('#app > .screen'))return null;
     const column=element.closest('.chain-day-column');
-    if(column)return {node:column,date:column.dataset.chainDate,minute:minutesAt(column,y)};
+    if(column)return timelineTarget(column,column.dataset.chainDate,y,am,pm,hourPixels);
     const week=element.closest('.timetable-day');
     if(week){
       const axis=week.closest('.timetable-canvas').dataset;
-      return {node:week,date:week.dataset.date,minute:Number(axis.start)+(y-week.getBoundingClientRect().top)/Number(axis.hourHeight)*60};
+      return timelineTarget(week,week.dataset.date,y,Number(axis.start),Number(axis.end),Number(axis.hourHeight));
     }
     const canvas=element.closest('.time-canvas');
-    if(canvas)return {node:canvas,date:ui.selected,minute:dayMinute(y-canvas.getBoundingClientRect().top)};
+    if(canvas){
+      const axis=dayAxis();
+      return timelineTarget(canvas,ui.selected,y,axis.start,axis.end,axis.hourHeight);
+    }
     const clock=element.closest('.schedule-clock');
     if(clock){
-      const rect=clock.getBoundingClientRect(),angle=Math.atan2(x-rect.left-rect.width/2,rect.top+rect.height/2-y);
-      return {node:clock,date:ui.selected,minute:(angle/(2*Math.PI)*1440+1440)%1440};
+      const point=new DOMPoint(x,y).matrixTransform(clock.getScreenCTM().inverse());
+      let closest=0, distance=Infinity;
+      for(let minute=0;minute<1440;minute+=15){
+        const position=FocusCore.spiralPoint(minute);
+        const delta=Math.hypot(position.x-point.x,position.y-point.y);
+        if(delta<distance){closest=minute;distance=delta;}
+      }
+      return {node:clock,date:ui.selected,minute:closest};
     }
     const date=element.closest('[data-drop-date], [data-date], [data-month]');
-    if(date)return {node:date,date:date.dataset.dropDate||date.dataset.date||date.dataset.month+'-01',minute:540};
+    if(date)return {node:date,date:date.dataset.dropDate||date.dataset.date||date.dataset.month+'-01',minute:null};
     const calendar=element.closest('.calendar-stage,.tablet-agenda');
-    return calendar?{node:calendar,date:ui.selected,minute:540}:null;
+    return calendar?{node:calendar,date:ui.selected,minute:null}:null;
   }
-  function dropPreset(id,target){
-    if(target && Number.isFinite(target.minute))place(id,target.date,Math.max(0,Math.min(1425,Math.floor(target.minute/15)*15)));
+  function dropBlock(id,target){
+    if(target && /^\d{4}-\d{2}-\d{2}$/.test(target.date))place(id,target.date,target.minute);
   }
 
   let press=null, ignoreClickUntil=0;
+  const scrollSelector='.chain-week-scroll,.daily-timeline,.timetable-scroll,.month-scroll,.calendar-stage';
+  const moveSelector='.preset-chip,.chain-block-open,.timetable-event,.month-event,.time-block-main,.outside-hours button,.all-day-items button,.clock-callout,[data-action="clock-select"],.tablet-record,.chain-extra button,.clock-selected-copy [data-action="edit"]';
   function updateDrag(current){
     if(press!==current)return;
-    const scroller=document.elementFromPoint(current.x,current.y)?.closest('.chain-week-scroll,.daily-timeline,.timetable-scroll,.month-scroll');
+    const scroller=document.elementFromPoint(current.x,current.y)?.closest(scrollSelector);
     if(scroller){
       const rect=scroller.getBoundingClientRect();
       if(current.y<rect.top+26)scroller.scrollTop-=7;
@@ -341,7 +353,15 @@
       target?.node.classList.add('preset-drop-highlight');
     }
     current.target=target;
+    if(target)current.ghost.textContent=title(eventFor(current.id))+' · '+target.date.slice(5)+(target.minute===null?'':' '+timeLabel(target.minute));
     current.ghost.style.transform=`translate(${current.x+10}px,${current.y-34}px)`;
+    current.line.hidden=!target || target.lineTop===undefined;
+    if(!current.line.hidden){
+      const rect=target.node.getBoundingClientRect();
+      current.line.style.left=rect.left+'px';
+      current.line.style.top=(rect.top+target.lineTop)+'px';
+      current.line.style.width=rect.width+'px';
+    }
     current.frame=requestAnimationFrame(()=>updateDrag(current));
   }
   function finishDrag(event,commit){
@@ -351,45 +371,100 @@
     clearTimeout(current.timer);
     cancelAnimationFrame(current.frame);
     current.target?.node.classList.remove('preset-drop-highlight');
-    if(!current.ghost)return;
+    if(!current.ghost){
+      if(current.panning)ignoreClickUntil=performance.now()+350;
+      return;
+    }
     current.ghost.remove();
+    current.line.remove();
+    if(current.source.isConnected)current.source.classList.remove('schedule-dragging');
     ignoreClickUntil=performance.now()+350;
-    if(commit)dropPreset(current.id,targetAt(event.clientX,event.clientY));
+    if(commit && Math.hypot(event.clientX-current.startX,event.clientY-current.startY)>6){
+      dropBlock(current.id,targetAt(event.clientX,event.clientY));
+    }
   }
+  function moveSource(element,y){
+    if(element.closest('.blank-range,.session-check,[role="checkbox"]'))return null;
+    const source=element.closest(moveSelector);
+    if(!source?.closest('#app > .screen'))return null;
+    const canMove=item=>item&&!item.done&&!data.focusSessions.some(session=>session.planId===item.id);
+    const merged=source.closest('.timeline-merged');
+    if(merged){
+      const canvas=merged.closest('.time-canvas');
+      const minute=dayMinute(y-canvas.getBoundingClientRect().top);
+      const members=(merged.dataset.sources||'').split(',').map(eventFor).filter(canMove);
+      // Move the original entry covering the touched portion of a merged card.
+      const item=members.filter(item=>minuteOf(item.time)<=minute && minute<minuteOf(item.endTime))
+        .sort((a,b)=>minuteOf(b.time)-minuteOf(a.time))[0];
+      return item?{source,id:item.id}:null;
+    }
+    const item=eventFor(source.dataset.id||source.closest('.time-block')?.dataset.id);
+    return canMove(item)?{source,id:item.id}:null;
+  }
+  document.addEventListener('pointerdown',()=>{ignoreClickUntil=0;},true);
   document.addEventListener('pointerdown',event=>{
-    const chip=event.target.closest('.preset-chip');
-    if(!chip||!event.isPrimary||event.button!==0)return;
-    const current={pointer:event.pointerId,id:chip.dataset.id,x:event.clientX,y:event.clientY};
+    if(!event.isPrimary || event.button!==0 || ui.tab!=='calendar' || panel || modal || menu)return;
+    const movable=moveSource(event.target,event.clientY);
+    if(!movable)return;
+    const {source,id}=movable;
+    const current={
+      source,pointer:event.pointerId,id,
+      x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,
+      scroller:source.closest(scrollSelector),panning:false
+    };
     press=current;
-    chip.setPointerCapture(event.pointerId);
     current.timer=setTimeout(()=>{
+      if(!current.source.isConnected){press=null;return;}
+      current.source.setPointerCapture(current.pointer);
+      current.source.classList.add('schedule-dragging');
+      calendarGesture=null;
       current.ghost=document.createElement('div');
       current.ghost.className='preset-drag-ghost';
       current.ghost.textContent=title(eventFor(current.id));
-      document.body.append(current.ghost);
+      current.line=document.createElement('div');
+      current.line.className='schedule-drop-line';
+      document.body.append(current.ghost,current.line);
       updateDrag(current);
     },350);
   });
-  document.addEventListener('pointermove',event=>{if(press?.pointer===event.pointerId){press.x=event.clientX;press.y=event.clientY;}});
+  document.addEventListener('pointermove',event=>{
+    if(press?.pointer!==event.pointerId)return;
+    const dx=event.clientX-press.x,dy=event.clientY-press.y;
+    press.x=event.clientX;press.y=event.clientY;
+    if(press.ghost)return;
+    if(Math.hypot(press.x-press.startX,press.y-press.startY)>8){
+      clearTimeout(press.timer);
+      if(event.pointerType==='mouse'){press=null;return;}
+      press.panning=true;
+      if(press.scroller && press.scroller.scrollHeight>press.scroller.clientHeight)press.scroller.scrollTop-=dy;
+      else window.scrollBy(0,-dy);
+      if(press.scroller?.classList.contains('chain-week-scroll'))press.scroller.scrollLeft-=dx;
+      // The existing calendar handler still owns horizontal date swipes on non-scrolling views.
+    }
+  });
   document.addEventListener('pointerup',event=>finishDrag(event,true));
-  for(const type of ['pointercancel','lostpointercapture'])document.addEventListener(type,event=>finishDrag(event,false));
-  document.addEventListener('contextmenu',event=>{if(event.target.closest('.preset-chip'))event.preventDefault();});
+  document.addEventListener('pointercancel',event=>finishDrag(event,false));
+  document.addEventListener('lostpointercapture',event=>{
+    if(event.target===press?.source && press.ghost)finishDrag(event,false);
+  });
+  document.addEventListener('contextmenu',event=>{if(moveSource(event.target,event.clientY))event.preventDefault();});
   document.addEventListener('click',event=>{
-    if(event.target.closest('.preset-chip')&&performance.now()<ignoreClickUntil){event.preventDefault();event.stopImmediatePropagation();return;}
+    if(performance.now()<ignoreClickUntil&&event.target.closest('#app > .screen')){event.preventDefault();event.stopImmediatePropagation();return;}
     if(!placing||event.target.closest('.chain-grid-target')||!event.target.closest('.calendar-stage,.tablet-agenda')||event.target.closest('.calendar-presets'))return;
     const target=targetAt(event.clientX,event.clientY);
-    if(target){event.preventDefault();event.stopImmediatePropagation();dropPreset(placing,target);}
+    if(target){event.preventDefault();event.stopImmediatePropagation();dropBlock(placing,target);}
   },true);
 
   function fitBlocks(scroller){
     for(const block of scroller.querySelectorAll('.chain-block')){
-      const copy=block.firstElementChild,heading=copy.querySelector('strong'),detail=copy.querySelector('small');
-      if(!block.clientHeight)continue;
+      const copy=block.querySelector('.chain-block-copy'),heading=copy.querySelector('strong'),detail=copy.querySelector('small');
+      const available=copy.parentElement;
+      if(!available.clientHeight)continue;
       let low=.1,high=matchMedia('(min-width:740px)').matches?14:12;
       const apply=size=>{heading.style.fontSize=size+'px';if(detail)detail.style.fontSize=size*.78+'px';};
       for(let step=0;step<9;step++){
         const size=(low+high)/2;apply(size);
-        if(copy.scrollHeight<=block.clientHeight-2 && copy.scrollWidth<=block.clientWidth-2)low=size;
+        if(copy.scrollHeight<=available.clientHeight-2 && copy.scrollWidth<=available.clientWidth)low=size;
         else high=size;
       }
       apply(low);
@@ -418,7 +493,7 @@
       else{
         const todayColumn=scroller.querySelector(`[data-chain-date="${scroller.dataset.anchor}"]`);
         scroller.scrollLeft=todayColumn.offsetLeft-scroller.querySelector('.chain-hours').offsetWidth;
-        scroller.scrollTop=140;
+        scroller.scrollTop=0;
       }
       fitBlocks(scroller);
       weekResize.observe(scroller);

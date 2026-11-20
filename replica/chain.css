@@ -139,7 +139,6 @@
 .chain-screen .chain-weekbar strong,.chain-screen .chain-dates small,.chain-screen .chain-hours { color:var(--muted); }
 .chain-week-scroll { overflow-x:auto; overscroll-behavior-x:contain; }
 .chain-week-scroll .chain-dates,.chain-week-scroll .chain-grid { min-width:770px; }
-.chain-week-scroll .chain-grid { height:1190px; }
 .chain-screen .chain-day-column { background:repeating-linear-gradient(to bottom,var(--line) 0 1px,transparent 1px calc(100% * 2 / 17)); }
 .chain-block { white-space:normal; overflow-wrap:anywhere; text-overflow:clip; text-align:left; font-size:11px; line-height:1.25; font-weight:550; padding:2px 4px; }
 .chain-block.is-short { font-size:8px; padding:0 2px; line-height:1; }
@@ -161,7 +160,6 @@
   width: calc(var(--axis) + 14 * var(--week-day-width));
   grid-template-columns: var(--axis) repeat(14, var(--week-day-width));
 }
-.chain-week-scroll .chain-grid { height: 1190px; }
 .chain-week-scroll .chain-now {
   left: calc(var(--axis) + var(--week-day-width) * var(--day));
   width: var(--week-day-width);
@@ -261,4 +259,77 @@
     border: 1px solid var(--line);
     box-shadow: 0 20px 80px #0009;
   }
+}
+
+/* Actual blocks and their legend share the same status palette. */
+.chain-screen {
+  --schedule-planned: #d9f3ea;
+  --schedule-complete: #13ab81;
+  --schedule-fixed: #e9edf1;
+}
+.chain-screen .chain-legend i,
+.chain-screen .chain-block:not(.is-done):not(.is-fixed) { background: var(--schedule-planned); }
+.chain-screen .chain-legend i.chain-solid,
+.chain-screen .chain-block.is-done { background: var(--schedule-complete); }
+.chain-screen .chain-legend i.chain-fixed,
+.chain-screen .chain-block.is-fixed:not(.is-done) { background: var(--schedule-fixed); }
+.chain-screen .chain-block,
+.chain-screen .chain-block.is-fixed:not(.is-done),
+.chain-screen .chain-block:not(.is-done):not(.is-fixed) {
+  color: #172c27;
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+}
+.chain-block-open {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  text-align: left;
+  overflow: hidden;
+}
+.chain-complete {
+  flex: 0 0 16px;
+  display: grid;
+  place-items: center;
+  padding: 0 2px 0 0;
+  min-height: 0;
+  background: #ffffff30;
+}
+.chain-complete span {
+  display: grid;
+  place-items: center;
+  width: 10px;
+  height: 10px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+}
+.chain-complete svg { width: 9px; height: 9px; }
+.chain-complete[aria-checked=true] span { background: #153e34; color: white; }
+.chain-complete:disabled { opacity: .48; }
+.chain-screen .chain-week { padding: 6px 6px 5px; }
+.chain-screen .chain-legend { margin: 5px 3px; }
+.chain-screen .chain-week-scroll { max-height: calc(100dvh - 255px - var(--safe)); }
+.chain-week-scroll .chain-dates { margin: 0; padding-bottom: 3px; }
+.chain-week-scroll .chain-dates small { margin: 0; }
+.chain-week-scroll .chain-dates b { height: 21px; }
+.schedule-drop-line {
+  position: fixed;
+  z-index: 99;
+  height: 2px;
+  pointer-events: none;
+  background: #64cfac;
+  box-shadow: 0 0 0 1px #183e34;
+}
+#app > .screen :is(.chain-block-open,.timetable-event,.month-event,.time-block-main,.outside-hours button,.all-day-items button,.clock-callout,[data-action="clock-select"],.tablet-record,.chain-extra button) {
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+#app > .screen .schedule-dragging { opacity: .55; }
+@media(min-width:740px) {
+  .chain-screen .chain-week-scroll { max-height: calc(100dvh - 195px - var(--safe)); }
 }
