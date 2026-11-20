@@ -1,10 +1,10 @@
 {
-  "versionCode": 26,
-  "versionName": "1.12.3",
-  "sha256": "30b474fe148bf67adf70193fa7384563ff8145f39359e51a00c29d2652c5cefc",
+  "versionCode": 27,
+  "versionName": "1.12.4",
+  "sha256": "79063cdfd7d1af476dd92d5a36010799d5e4953a9ecac665241ce2aad1a7bac2",
   "certificateSha256": "50f747f676696e5f51e547ab8f122580b292b314d24bdfe74b0433a2855a646b",
-  "releaseNotes": "执律蓉 1.12.3（构建 26）\n\n- 日程表默认从今天开始，横向滑动可回看之前的日期。短块与重叠日程分列排版，完整展示主目标和小目标，字号随可用空间调整。\n- 日、周、月、年和数据板均提供预设任务块。长按拖到日历可安排时间，预设可重复使用。\n- 平板使用双栏排程工作区，右栏保留预设和当天安排，编辑日程时打开居中窗口。手机和平板沿用同一套账号同步。",
-  "sourceHash": "f1ca3cc14bca807a245dae6afc7b6f49a045f0016353fc72c4e752cb7e40f321",
-  "validationRunId": 44639534336,
-  "sourceCommit": "f8decddfeecf76eb5f40588d21dae61cefe91b39"
+  "releaseNotes": "执律蓉 1.12.4（构建 27）\r\n\r\n- 日程块和图例使用一致的状态色。到时后可用方框标记完成或撤销。\r\n- 日程表压缩到每小时 34 像素，减少卡片和行间留白。\r\n- 长按已有安排可拖动。时间轴按最接近的 15 分钟对齐并显示预览线，拖动保留原时长。月历和年历按日期落点移动。",
+  "sourceHash": "ca43b2783026e39bb5b7477506a59cd221b1c061020c2eaa436785ec765b4127",
+  "validationRunId": 44693388447,
+  "sourceCommit": "957e002b041adbb44cde8cacf7023d75b1c735d1"
 }
