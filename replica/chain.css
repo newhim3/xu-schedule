@@ -312,7 +312,7 @@
 .chain-complete:disabled { opacity: .48; }
 .chain-screen .chain-week { padding: 6px 6px 5px; }
 .chain-screen .chain-legend { margin: 5px 3px; }
-.chain-screen .chain-week-scroll { max-height: calc(100dvh - 255px - var(--safe)); }
+.chain-screen .chain-week-scroll { max-height: calc(100dvh - 305px - var(--safe)); }
 .chain-week-scroll .chain-dates { margin: 0; padding-bottom: 3px; }
 .chain-week-scroll .chain-dates small { margin: 0; }
 .chain-week-scroll .chain-dates b { height: 21px; }
